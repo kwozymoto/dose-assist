@@ -288,6 +288,6 @@ export async function summaryText(child, t, tz, hours) {
     }
   }
   lines.push('');
-  lines.push(`From Whendose (a record-keeping app; limits version ${state.rules.rulesVersion}).`);
+  lines.push(`From WhenDose (a record-keeping app; limits version ${state.rules.rulesVersion}).`);
   return lines.join('\n');
 }

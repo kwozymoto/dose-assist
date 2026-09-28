@@ -1,6 +1,6 @@
 {
   "appId": "nz.whendose.app",
-  "appName": "Whendose",
+  "appName": "WhenDose",
   "webDir": "www",
   "android": {
     "allowMixedContent": false,

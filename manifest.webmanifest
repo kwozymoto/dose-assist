@@ -1,6 +1,6 @@
 {
-  "name": "Whendose",
-  "short_name": "Whendose",
+  "name": "WhenDose",
+  "short_name": "WhenDose",
   "description": "A record of your children's medicine doses, and a reminder when the next one is allowed.",
   "id": "./",
   "start_url": "./",

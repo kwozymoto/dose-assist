@@ -1,4 +1,4 @@
-# Whendose
+# WhenDose
 
 A record of your children's medicine doses, and a reminder when the next one is allowed. For New Zealand parents and anyone sharing the care of a sick child.
 
@@ -68,7 +68,7 @@ npx wrangler deploy
 
 Then set `PUSH_URL` (the worker's URL) and `VAPID_PUBLIC_KEY` in `js/config.js`, bump `VERSION` in `sw.js`, and add the site's origin to `ALLOWED_ORIGINS` in `reminder-worker/wrangler.toml` if it is not `https://kwozymoto.github.io`.
 
-On iPhone, push needs iOS 16.4 or later and Whendose added to the Home Screen.
+On iPhone, push needs iOS 16.4 or later and WhenDose added to the Home Screen.
 
 ## Sources
 

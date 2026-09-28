@@ -145,7 +145,7 @@ async function softRefresh() {
 
 /** @param {Screen} s */
 function paint(s) {
-  document.title = s.title === 'Whendose' ? 'Whendose' : `${s.title} · Whendose`;
+  document.title = s.title === 'WhenDose' ? 'WhenDose' : `${s.title} · WhenDose`;
   const top = /** @type {HTMLElement} */ (document.getElementById('topbar'));
   top.replaceChildren(
     s.back ? h('a', { class: 'iconbtn', href: '#' + s.back, 'aria-label': 'Back' }, icon('back')) : h('span', { class: 'iconbtn-space' }),
@@ -206,14 +206,14 @@ async function boot() {
   try {
     await loadData();
   } catch (err) {
-    document.getElementById('view')?.replaceChildren(h('p', { class: 'stack' }, 'Whendose could not load its medicine rules. Check your connection and reload.'));
+    document.getElementById('view')?.replaceChildren(h('p', { class: 'stack' }, 'WhenDose could not load its medicine rules. Check your connection and reload.'));
     throw err;
   }
   await applyTheme();
   footer();
   addEventListener('hashchange', () => render());
   // Refresh countdowns when the phone wakes or the app comes back.
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { softRefresh(); refreshReminders(); } });
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { applyTheme(); softRefresh(); refreshReminders(); } });
   try { await navigator.storage?.persist?.(); } catch { /* optional */ }
   await render();
   startReminders({ onFire: () => softRefresh() });

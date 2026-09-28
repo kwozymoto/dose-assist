@@ -17,7 +17,7 @@ describe('next_allowed', () => {
     const [n] = plan([rem()], [dose('alpha', HOUR)]);
     assert.equal(n.fireAt, NOW - HOUR + 4 * HOUR);
     assert.equal(n.title, 'Mia: next alpha allowed from now');
-    assert.equal(n.body, 'Last given 11:00am. Open Whendose to check before giving.');
+    assert.equal(n.body, 'Last given 11:00am. Open WhenDose to check before giving.');
     assert.doesNotMatch(n.title + n.body, /\bgive (mia|her|him|them)\b/i);
     assert.equal(n.tag, 'r1');
     assert.equal(n.logUrl, './#/give?child=c1&ingredients=alpha');

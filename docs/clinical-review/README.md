@@ -1,6 +1,6 @@
 # Clinical review
 
-Nothing in Whendose may be released to the public until a NZ-registered pharmacist or paediatrician has reviewed the items below and signed off here (PLAN.md M7). Record each sign-off as a dated file in this folder, then set `reviewedBy` and `reviewedAt` in `data/rules.json` (and `data/products.json`) in the same commit.
+Nothing in WhenDose may be released to the public until a NZ-registered pharmacist or paediatrician has reviewed the items below and signed off here (PLAN.md M7). Record each sign-off as a dated file in this folder, then set `reviewedBy` and `reviewedAt` in `data/rules.json` (and `data/products.json`) in the same commit.
 
 ## What the reviewer checks
 

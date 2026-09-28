@@ -484,7 +484,7 @@ export async function exportAll(at) {
  * @param {any} file
  */
 export async function importAll(file) {
-  if (!file || file.format !== EXPORT_FORMAT || typeof file.data !== 'object') throw new Error('This is not a Whendose backup file.');
+  if (!file || file.format !== EXPORT_FORMAT || typeof file.data !== 'object') throw new Error('This is not a WhenDose backup file.');
   if (typeof file.version !== 'number' || file.version > DB_VERSION) throw new Error('This backup is from a newer version of the app. Update the app first.');
   await tx(STORES, 'readwrite', async (t) => {
     for (const s of STORES) {

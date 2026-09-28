@@ -1,7 +1,7 @@
 // @ts-check
-/* Theme. "Auto" (the default) is dark at night whatever the phone is set
-   to, because the app is used at 3am (PLAN.md 8.1), and follows the phone
-   during the day. */
+/* Theme. "Auto" (the default) goes by the clock: dark from 7pm to 7am,
+   whatever the phone is set to, because the app is used at 3am (PLAN.md
+   8.1), and light by day. "Same as my phone" follows the phone. */
 
 import * as db from './db.js';
 import { now } from './clock.js';
@@ -20,7 +20,7 @@ export function resolveTheme(choice, at, systemDark) {
   if (choice === 'light' || choice === 'dark') return choice;
   if (choice === 'system') return systemDark ? 'dark' : 'light';
   const hour = new Date(at).getHours();
-  return systemDark || hour >= 19 || hour < 7 ? 'dark' : 'light';
+  return hour >= 19 || hour < 7 ? 'dark' : 'light';
 }
 
 /** @type {ReturnType<typeof setInterval> | undefined} */

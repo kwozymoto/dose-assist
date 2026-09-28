@@ -31,7 +31,7 @@ export async function home(ctx) {
       h('p', null, 'Add a child to start keeping a record of their doses.'),
       h('a', { class: 'btn btn-primary', href: '#/child/new' }, icon('plus'), 'Add a child'),
     ));
-    return { title: 'Whendose', node, tab: 'home', back: false };
+    return { title: 'WhenDose', node, tab: 'home', back: false };
   }
   if (bottles.length === 0) {
     node.append(h('div', { class: 'notice' },
@@ -46,7 +46,7 @@ export async function home(ctx) {
     const lead = all.filter((n) => n instanceof HTMLElement && n.classList.contains('notice-undo'));
     const after = all.filter((n) => !lead.includes(n));
     const screen = await childDetail({ ...ctx, params: { id: kids[0].id } }, { asHome: true, lead, after });
-    return { ...screen, title: 'Whendose', back: false, tab: 'home' };
+    return { ...screen, title: 'WhenDose', back: false, tab: 'home' };
   }
 
   // The children come first; standing notices go below them. Undo stays on top.
@@ -66,7 +66,7 @@ export async function home(ctx) {
 
   // Countdowns: refresh every 30 s, and exactly when the next wait ends.
   const untilNext = soonest === Infinity ? Infinity : soonest - now() + 500;
-  return { title: 'Whendose', node, tab: 'home', back: false, refreshEvery: Math.max(1000, Math.min(30000, untilNext)) };
+  return { title: 'WhenDose', node, tab: 'home', back: false, refreshEvery: Math.max(1000, Math.min(30000, untilNext)) };
 }
 
 /** "Good evening", with the little droplet. The words follow the local hour. @param {number} t */
@@ -161,7 +161,7 @@ async function banners(ctx) {
   } else if (push === 'not-configured') {
     out.push(h('div', { class: 'notice' },
       icon('bell'),
-      h('p', null, 'Reminders work while Whendose is open. Reminders with the app closed are not set up yet in this version.'),
+      h('p', null, 'Reminders work while WhenDose is open. Reminders with the app closed are not set up yet in this version.'),
     ));
   }
 

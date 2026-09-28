@@ -127,5 +127,5 @@ export async function syncNative(upcoming, opts = {}) {
 /** A test notification a few seconds from now, through the same channel. */
 export async function testNative() {
   await setUp();
-  await plugin().schedule({ notifications: [{ id: 1, title: 'Whendose', body: 'This is how reminders will look.', channelId: CHANNEL_ID, schedule: { at: new Date(Date.now() + 3000), allowWhileIdle: true } }] });
+  await plugin().schedule({ notifications: [{ id: 1, title: 'WhenDose', body: 'This is how reminders will look.', channelId: CHANNEL_ID, schedule: { at: new Date(Date.now() + 3000), allowWhileIdle: true } }] });
 }
