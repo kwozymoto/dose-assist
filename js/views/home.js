@@ -10,7 +10,7 @@ import { UNDO_MS } from '../config.js';
 import { GUIDANCE } from '../content/guidance.js';
 import { pushStatus } from '../push.js';
 import { refreshReminders } from '../reminders.js';
-import { formatTime } from '../format.js';
+import { formatTime, formatDuration } from '../format.js';
 import { timeZone } from '../clock.js';
 
 /** @typedef {import('../app.js').Ctx} Ctx */
@@ -99,7 +99,7 @@ async function banners(ctx) {
         h('button', {
           class: 'btn btn-secondary',
           onclick: async () => {
-            await db.doses.remove(dose.id, { by: state.caregiver || 'Unknown', at: now(), reason: 'Undo within 2 minutes of logging' });
+            await db.doses.remove(dose.id, { by: state.caregiver || 'Unknown', at: now(), reason: `Undo within ${formatDuration(UNDO_MS)} of logging` });
             state.lastLogged = null;
             toast('Dose removed');
             await refreshReminders();

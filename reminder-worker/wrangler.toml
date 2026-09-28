@@ -1,0 +1,19 @@
+name = "dose-assist-reminders"
+main = "src/index.js"
+compatibility_date = "2026-08-01"
+
+# The origins allowed to set schedules: the published app, and local testing.
+[vars]
+ALLOWED_ORIGINS = "https://kwozymoto.github.io,http://localhost:8741"
+# A contact for push services (RFC 8292). Set before deploying, e.g.
+#   npx wrangler secret put VAPID_SUBJECT      (mailto:someone@example.org)
+# The private key goes in the same way; see README.md "Reminders when closed":
+#   npx wrangler secret put VAPID_PRIVATE_JWK
+
+[[durable_objects.bindings]]
+name = "DEVICES"
+class_name = "DeviceSchedule"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["DeviceSchedule"]
