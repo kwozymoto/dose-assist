@@ -52,6 +52,7 @@ Testing tips: `?clock=+4h` in the URL moves the app's clock (a banner shows whil
 - **New file? Add it to `SHELL` in `sw.js`.** `check_sw` fails if a file under `js/`, `css/`, `data/` or `icons/` is missing.
 - A new version installs and waits; only the "New version ready · Reload" button activates it, so nobody is thrown out mid-dose. A reload is not enough to see a deploy.
 - The reminder worker (`reminder-worker/`) deploys separately with wrangler. See `README.md`.
+- **Android app:** `npm run android:sync` copies the shell into `www/` and updates `android/`. Never edit `www/` or `android/app/src/main/assets/public/`; they are copies. Native reminders live in `js/native.js` and take the same `planNotices` output as push. See `README.md`.
 
 ## Git
 

@@ -77,3 +77,23 @@ Every rule and piece of advice names its source and the date it was checked: Kid
 ## Not medical advice
 
 This app keeps a record. Always follow the product label and your doctor or pharmacist. If you are unsure, call Healthline on 0800 611 116. In an emergency, call 111. If a child may have had too much medicine, call the National Poisons Centre on 0800 764 766.
+
+## Android app (sideloaded APK)
+
+The same app, wrapped with [Capacitor](https://capacitorjs.com/) so reminders are scheduled as Android alarms on the phone: they fire with no internet and with the app closed, and are restored after a restart. The web app is unchanged and still has no build step.
+
+- `js/native.js` hands the plan from `planNotices` to `@capacitor/local-notifications` (exact alarms, allowed in Doze, one channel "Dose reminders"). A tap opens a screen; it never logs a dose. In a browser it does nothing.
+- `tools/build_www.mjs` copies exactly the `sw.js` SHELL into `www/` (Capacitor's `webDir`, git-ignored), so the APK and the web app cannot ship different files. There is no service worker inside the app.
+- `android/` is the generated Android Studio project. `USE_EXACT_ALARM` is declared for sideloading; remove it before any Google Play listing (see the comment in `AndroidManifest.xml`).
+- App id `nz.doseassist.app`. Changing it later makes a different app, so decide before the first real install.
+
+Build (needs JDK 21 and the Android SDK, e.g. from Android Studio):
+
+```bash
+npm run android:sync          # copy the shell into www/ and update android/
+npm run android:apk           # debug APK at android/app/build/outputs/apk/debug/app-debug.apk
+npm run android:open          # or open the project in Android Studio
+python tools/android_icons.py # redraw launcher and notification icons from icons/
+```
+
+After changing any shell file, run `npm run android:sync` again before building.

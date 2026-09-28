@@ -8,7 +8,8 @@ import { state } from '../state.js';
 import { now, timeZone, clockOffset, setClockOffset, parseOffset } from '../clock.js';
 import { formatDate } from '../format.js';
 import { THEME_CHOICES, applyTheme } from '../theme.js';
-import { pushStatus, enablePush, disablePush } from '../push.js';
+import { pushStatus, enablePush, disablePush, notifyPermission } from '../push.js';
+import { isNative, testNative, exactAlarmsAllowed, openExactAlarmSettings } from '../native.js';
 import { refreshReminders } from '../reminders.js';
 import { field } from './child.js';
 
@@ -30,7 +31,7 @@ export async function settings(ctx) {
   themeSel.addEventListener('change', async () => { await db.meta.set('theme', themeSel.value); await applyTheme(); });
 
   const push = await pushStatus();
-  const perm = 'Notification' in window ? Notification.permission : 'denied';
+  const perm = await notifyPermission();
   const reminderText = {
     unsupported: 'This browser cannot show notifications. Reminders show inside the app while it is open. On iPhone, add Dose Assist to your Home Screen first.',
     'not-configured': perm === 'granted'
@@ -40,6 +41,9 @@ export async function settings(ctx) {
     off: 'Reminders are off.',
     on: 'Reminders are on, including when the app is closed.',
   }[push];
+
+  // Android can be set to deliver alarms late to save battery; reminders need the exact minute.
+  const inexact = isNative() && perm === 'granted' && !(await exactAlarmsAllowed());
 
   const active = await db.reminders.active();
   const kids = await db.children.list({ includeArchived: true });
@@ -98,9 +102,10 @@ export async function settings(ctx) {
       h('h2', null, 'Reminders'),
       h('p', null, reminderText),
       push === 'off' || (push === 'not-configured' && perm === 'default')
-        ? h('button', { class: 'btn btn-primary', onclick: async () => { const s = await enablePush(); toast(s === 'on' || Notification.permission === 'granted' ? 'Notifications on' : 'Notifications not allowed'); await refreshReminders(); ctx.refresh(); } }, icon('bell'), 'Turn on notifications')
+        ? h('button', { class: 'btn btn-primary', onclick: async () => { const s = await enablePush(); toast(s === 'on' || (await notifyPermission()) === 'granted' ? 'Notifications on' : 'Notifications not allowed'); await refreshReminders(); ctx.refresh(); } }, icon('bell'), 'Turn on notifications')
         : null,
       push === 'on' ? h('button', { class: 'btn btn-secondary', onclick: async () => { await disablePush(); toast('Reminders with the app closed are off'); ctx.refresh(); } }, 'Turn off reminders when closed') : null,
+      inexact ? h('div', { class: 'notice notice-warn' }, h('p', null, 'Your phone may deliver reminders a few minutes late. Allow alarms and reminders for Dose Assist so they come on time.'), h('button', { class: 'btn btn-secondary', onclick: async () => { await openExactAlarmSettings(); ctx.refresh(); } }, 'Allow alarms')) : null,
       perm === 'granted' ? h('button', { class: 'btn btn-secondary', onclick: testNotification }, 'Send a test notification') : null,
       h('p', { class: 'small muted' }, active.length === 0 ? 'No reminders set.' : `${active.length} reminder${active.length === 1 ? '' : 's'} set.`),
       active.length ? h('button', { class: 'btn btn-quiet', onclick: async () => { for (const r of active) await db.reminders.cancel(r.id, now()); await refreshReminders(); toast('Reminders cleared'); ctx.refresh(); } }, 'Clear all reminders') : null,
@@ -134,6 +139,7 @@ export async function settings(ctx) {
 }
 
 async function testNotification() {
+  if (isNative()) { await testNative(); toast('A test notification is on its way'); return; }
   const reg = await navigator.serviceWorker?.getRegistration();
   if (!reg) { toast('Not available here'); return; }
   await reg.showNotification('Dose Assist', { body: 'This is how reminders will look.', tag: 'test', icon: 'icons/icon-192.png' });

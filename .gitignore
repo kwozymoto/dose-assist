@@ -12,3 +12,6 @@ desktop.ini
 # into `wrangler secret put`. Never into the repo.
 *.private.json
 .dev.vars
+
+# Android: www/ is copied from the shell by tools/build_www.mjs; never edit it.
+www/

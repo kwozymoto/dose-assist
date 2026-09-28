@@ -17,6 +17,7 @@ import { state } from './state.js';
 import { now, timeZone } from './clock.js';
 import { STALE_GRACE_MS } from './config.js';
 import { syncPush } from './push.js';
+import { isNative } from './native.js';
 import { h, icon, buzz } from './dom.js';
 
 /** @typedef {import('./schedule.js').Notice} Notice */
@@ -90,7 +91,8 @@ async function cycle() {
 async function show(n) {
   buzz(200);
   const reg = await navigator.serviceWorker?.getRegistration();
-  if (reg && 'Notification' in window && Notification.permission === 'granted') {
+  // In the installed app Android shows it from the scheduled alarm.
+  if (!isNative() && reg && 'Notification' in window && Notification.permission === 'granted') {
     const opts = /** @type {NotificationOptions & {actions?: {action: string, title: string}[], renotify?: boolean}} */ ({
       body: n.body,
       tag: n.tag,

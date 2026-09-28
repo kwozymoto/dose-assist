@@ -7,11 +7,13 @@
    and whenever the app comes back to the front. */
 
 import { toast } from './dom.js';
+import { isNative } from './native.js';
 
 const CHECK_EVERY = 60 * 60 * 1000;
 const CHECK_GAP = 15 * 60 * 1000;
 
-if ('serviceWorker' in navigator) {
+// The installed app ships its files in the APK; a service worker there would serve stale copies after an update.
+if ('serviceWorker' in navigator && !isNative()) {
   /** @type {ServiceWorkerRegistration | null} */
   let reg = null;
   let lastCheck = 0;

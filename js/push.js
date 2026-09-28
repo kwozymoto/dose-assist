@@ -12,6 +12,7 @@ import * as db from './db.js';
 import { PUSH_URL, VAPID_PUBLIC_KEY } from './config.js';
 import { encryptPush, b64url, unb64url } from './webpush.js';
 import { noticeRev } from './schedule.js';
+import { isNative, nativePermission, requestNativePermission, syncNative } from './native.js';
 
 /** @typedef {import('./schedule.js').Notice} Notice */
 
@@ -29,8 +30,31 @@ function swReady(ms = 4000) {
   return Promise.race([navigator.serviceWorker.ready, new Promise((r) => setTimeout(() => r(null), ms))]);
 }
 
+/**
+ * Can this app show a notification? The installed Android app asks Android;
+ * a browser has Notification.permission.
+ * @returns {Promise<'granted' | 'denied' | 'default'>}
+ */
+export async function notifyPermission() {
+  if (isNative()) {
+    const p = await nativePermission();
+    return p === 'prompt' ? 'default' : p;
+  }
+  return 'Notification' in window ? Notification.permission : 'denied';
+}
+
+/* In the installed app, "on" means alarms scheduled on the phone, which
+   work with the app closed and no internet. The parent can switch them off. */
+const nativeStatus = async () => {
+  const p = await nativePermission();
+  if (p === 'denied') return 'denied';
+  if (p === 'prompt' || (await db.meta.get('nativeRemindersOff', false))) return 'off';
+  return 'on';
+};
+
 /** @returns {Promise<'unsupported' | 'not-configured' | 'denied' | 'off' | 'on'>} */
 export async function pushStatus() {
+  if (isNative()) return nativeStatus();
   if (!supported()) return 'unsupported';
   if (!pushConfigured()) return 'not-configured';
   if (Notification.permission === 'denied') return 'denied';
@@ -42,6 +66,11 @@ export async function pushStatus() {
 
 /** Ask for permission and subscribe. Resolves to the new status. */
 export async function enablePush() {
+  if (isNative()) {
+    await db.meta.set('nativeRemindersOff', false);
+    await requestNativePermission();
+    return nativeStatus();
+  }
   if (!supported()) return 'unsupported';
   const perm = await Notification.requestPermission();
   if (perm !== 'granted') return perm === 'denied' ? 'denied' : 'off';
@@ -55,6 +84,11 @@ export async function enablePush() {
 }
 
 export async function disablePush() {
+  if (isNative()) {
+    await db.meta.set('nativeRemindersOff', true);
+    await syncNative([], { off: true });
+    return;
+  }
   if (!supported()) return;
   const reg = await swReady();
   const sub = reg && (await reg.pushManager.getSubscription());
@@ -74,6 +108,10 @@ export async function disablePush() {
  * @param {Notice[]} upcoming  soonest first
  */
 export async function syncPush(upcoming) {
+  if (isNative()) {
+    await syncNative(upcoming, { off: await db.meta.get('nativeRemindersOff', false) });
+    return;
+  }
   if (!supported() || !pushConfigured() || Notification.permission !== 'granted') return;
   const reg = await swReady();
   const sub = reg && (await reg.pushManager.getSubscription());

@@ -1,0 +1,15 @@
+{
+  "appId": "nz.doseassist.app",
+  "appName": "Dose Assist",
+  "webDir": "www",
+  "android": {
+    "allowMixedContent": false,
+    "webContentsDebuggingEnabled": false
+  },
+  "plugins": {
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_dose",
+      "iconColor": "#7f90ee"
+    }
+  }
+}

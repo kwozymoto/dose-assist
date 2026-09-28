@@ -26,7 +26,7 @@ import { BACKDATE_MAX_MS, SCHEDULE_PRESET_HOURS, UNDO_MS } from '../config.js';
 import { GUIDANCE } from '../content/guidance.js';
 import { EMERGENCY } from '../constants.js';
 import { refreshReminders } from '../reminders.js';
-import { enablePush } from '../push.js';
+import { enablePush, notifyPermission } from '../push.js';
 import { listNames } from '../schedule.js';
 
 /** @typedef {import('../app.js').Ctx} Ctx */
@@ -640,7 +640,7 @@ async function doneStep(ctx) {
  */
 async function addReminder(r) {
   await db.reminders.add({ id: db.uid(), createdAt: now(), ...r });
-  if ('Notification' in window && Notification.permission === 'default') {
+  if ((await notifyPermission()) === 'default') {
     try { await enablePush(); } catch { /* the banner on home explains */ }
   }
   await refreshReminders();

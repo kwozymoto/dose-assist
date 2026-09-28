@@ -8,7 +8,7 @@ import { state, childRows, ageText } from '../state.js';
 import { now } from '../clock.js';
 import { UNDO_MS } from '../config.js';
 import { GUIDANCE } from '../content/guidance.js';
-import { pushStatus } from '../push.js';
+import { pushStatus, notifyPermission } from '../push.js';
 import { refreshReminders } from '../reminders.js';
 import { formatTime, formatDuration } from '../format.js';
 import { timeZone } from '../clock.js';
@@ -145,7 +145,7 @@ async function banners(ctx) {
   }
 
   const push = await pushStatus();
-  const perm = 'Notification' in window ? Notification.permission : 'denied';
+  const perm = await notifyPermission();
   if (perm !== 'granted') {
     out.push(h('div', { class: 'notice notice-warn' },
       icon('bellOff'),
