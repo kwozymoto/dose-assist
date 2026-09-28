@@ -3,7 +3,7 @@
    this phone, and helpers that join storage to the engine. */
 
 import * as db from './db.js';
-import { checkDose, checkIngredient } from './engine/checkDose.js';
+import { checkDose, checkIngredient, assertRule } from './engine/checkDose.js';
 import { cardStatus } from './status.js';
 import { now, timeZone } from './clock.js';
 import { DAY_MS } from './engine/time.js';
@@ -37,6 +37,8 @@ export async function loadData() {
     fetch('data/rules.json').then((r) => r.json()),
     fetch('data/products.json').then((r) => r.json()),
   ]);
+  // A malformed rules file must stop the app, not quietly switch a check off.
+  for (const [name, rule] of Object.entries(rules.ingredients ?? {})) assertRule(name, rule);
   state.rules = rules;
   state.products = products;
   state.caregiver = await db.meta.get('caregiverName', '');

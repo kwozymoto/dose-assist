@@ -12,7 +12,7 @@
    delete, undo, a new reminder, the app coming back to the front. */
 
 import * as db from './db.js';
-import { planNotices, triage } from './schedule.js';
+import { planNotices, triage, noticeRev } from './schedule.js';
 import { state } from './state.js';
 import { now, timeZone } from './clock.js';
 import { STALE_GRACE_MS } from './config.js';
@@ -61,7 +61,7 @@ async function cycle() {
   // as current.
   for (const r of active) {
     const n = notices.find((x) => x.reminderId === r.id);
-    const planned = n ? { fireAt: n.fireAt } : null;
+    const planned = n ? { fireAt: n.fireAt, rev: noticeRev(n) } : null;
     if (JSON.stringify(r.planned ?? null) !== JSON.stringify(planned)) {
       await db.reminders.setPlanned(r.id, planned);
     }

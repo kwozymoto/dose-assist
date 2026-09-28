@@ -294,6 +294,24 @@ Warn (not block) if weight was recorded more than 3 months ago for children over
 
 ## 9. Technical architecture
 
+### 9.0 Stack decision (2026-09-28): a PWA, built like Everyday Koine
+
+The app is built as an installable web app, the way Everyday Koine is: plain HTML, CSS and ES modules, no build step, a service worker for offline, and checkers in `tools/`. The table in 9.1 below is the original React Native plan, kept for reference; the mapping is:
+
+| 9.1 said | Built as | Note |
+|---|---|---|
+| React Native + Expo | Static PWA (`index.html`, `js/`, `css/`) | Installable on Android and iPhone. Android store route later via a Trusted Web Activity, as Koine has. |
+| expo-router | Hash routes in `js/app.js` | |
+| expo-sqlite + Drizzle | IndexedDB (`js/db.js`), append-only migrations | Soft delete and audit in one transaction. |
+| expo-notifications (local) | In-app timers + Web Push via `reminder-worker/` (Cloudflare) | A web app cannot schedule a local notification for when it is closed. The phone encrypts each reminder to itself (RFC 8291) and the worker only holds ciphertext and a time, so rule 11 holds. On iPhone, reminders need the app on the Home Screen (iOS 16.4+). |
+| Jest, fast-check | `node --test`, fast-check, fake-indexeddb | |
+| TypeScript strict | `// @ts-check` + JSDoc, `tsc --noEmit` | Same checking, no build. |
+| ESLint | The checkers in `tools/checks.mjs` | They hold the golden rules directly. |
+| Maestro e2e | Walked through in a browser with `?clock=+4h` | An automated browser run is still to do. |
+| EAS Build/Submit | GitHub Pages | Apple 1.4.2 does not apply to a website; Medsafe still does (2.2). |
+
+Why: one codebase that runs everywhere with no store review for tracker mode, no Mac or Expo account needed to build it, the same deploy and checker discipline as Koine, and every screen testable on this machine.
+
 ### 9.1 Stack
 | Area | Choice | Why |
 |---|---|---|

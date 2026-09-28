@@ -92,6 +92,24 @@ export function planNotices({ reminders, children, doses, rules, timeZone }) {
 }
 
 /**
+ * A short fingerprint of what a notice says and when. sw.js shows a pushed
+ * message as current only if its rev matches the reminder's planned rev, so
+ * a message made before a dose was logged (same time, different words, say
+ * a doctor's-schedule reminder that now clashes with a new dose) is never
+ * passed off as current. FNV-1a, 32-bit, as 8 hex digits.
+ * @param {Pick<Notice, 'fireAt' | 'title' | 'body'>} n
+ */
+export function noticeRev(n) {
+  const s = `${n.fireAt}|${n.title}|${n.body}`;
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i += 1) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h.toString(16).padStart(8, '0');
+}
+
+/**
  * @param {DoseRecord[]} history @param {string[]} ingredients
  * @returns {number | null}
  */

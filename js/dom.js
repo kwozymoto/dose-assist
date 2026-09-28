@@ -117,6 +117,17 @@ export function confirmDialog(opts) {
     const dlg = /** @type {HTMLDialogElement} */ (h('dialog', { class: 'dialog', 'aria-labelledby': 'dlg-title' }));
     /** @type {HTMLInputElement | null} */
     let input = null;
+    /* Resolve from the buttons themselves. Relying only on the dialog's
+       'close' event left the flow stuck in a browser that did not fire it. */
+    let settled = false;
+    /** @param {boolean} yes */
+    const finish = (yes) => {
+      if (settled) return;
+      settled = true;
+      try { dlg.close(); } catch { /* already closed */ }
+      dlg.remove();
+      resolve(yes ? { value: input ? input.value : '' } : false);
+    };
     const ok = h('button', { class: `btn ${opts.danger ? 'btn-danger' : 'btn-primary'}`, type: 'submit', value: 'ok' }, opts.confirm);
     if (opts.input) {
       input = /** @type {HTMLInputElement} */ (h('input', { class: 'input', type: 'text', id: 'dlg-input', autocomplete: 'off' }));
@@ -126,7 +137,15 @@ export function confirmDialog(opts) {
         input.addEventListener('input', () => { /** @type {HTMLButtonElement} */ (ok).disabled = input?.value.trim() !== want; });
       }
     }
-    const form = h('form', { method: 'dialog' },
+    const form = h('form', {
+      method: 'dialog',
+      onsubmit: (/** @type {SubmitEvent} */ e) => {
+        e.preventDefault();
+        const yes = /** @type {HTMLButtonElement | null} */ (e.submitter)?.value === 'ok';
+        if (yes && /** @type {HTMLButtonElement} */ (ok).disabled) return;
+        finish(yes);
+      },
+    },
       h('h2', { id: 'dlg-title' }, opts.title),
       opts.body ? (typeof opts.body === 'string' ? h('p', null, opts.body) : opts.body) : null,
       opts.input ? h('label', { class: 'field', for: 'dlg-input' }, h('span', { class: 'label' }, opts.input.label), input) : null,
@@ -137,11 +156,8 @@ export function confirmDialog(opts) {
     );
     dlg.appendChild(form);
     document.body.appendChild(dlg);
-    dlg.addEventListener('close', () => {
-      const yes = dlg.returnValue === 'ok';
-      dlg.remove();
-      resolve(yes ? { value: input ? input.value : '' } : false);
-    });
+    dlg.addEventListener('cancel', () => finish(false)); // Escape
+    dlg.addEventListener('close', () => finish(dlg.returnValue === 'ok'));
     dlg.showModal();
     (input ?? ok).focus();
   });

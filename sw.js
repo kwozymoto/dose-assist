@@ -8,7 +8,7 @@
    if SHELL names a file that does not exist, or if a shell file changed
    since git HEAD without VERSION changing. */
 
-const VERSION = 'v2';
+const VERSION = 'v5';
 const CACHE = `dose-assist-${VERSION}`;
 
 const SHELL = [
@@ -94,8 +94,9 @@ self.addEventListener('fetch', (e) => {
 
    A push carries an encrypted notification made by the phone itself (the
    server cannot read it). Before showing it as current, check it is still
-   the plan: the reminder must exist, not be cancelled, and be planned for
-   the same moment the message was made for. A dose edited or logged while
+   the plan: the reminder must exist, not be cancelled, and its planned
+   rev (a fingerprint of time and wording, schedule.js noticeRev) must match
+   the message's. A dose edited or logged while
    the phone was offline could otherwise leave a stale "allowed from now"
    on the server. A stale message is replaced by a neutral one that tells
    nobody to give anything.
@@ -141,7 +142,7 @@ self.addEventListener('push', (e) => {
     let msg = null;
     try { msg = e.data ? e.data.json() : null; } catch { msg = null; }
     const rec = msg && msg.rid ? await reminderRecord(msg.rid) : null;
-    const current = rec && !rec.cancelledAt && rec.planned && rec.planned.fireAt === msg.rev;
+    const current = rec && !rec.cancelledAt && rec.planned && rec.planned.rev === msg.rev;
     if (current) {
       await self.registration.showNotification(msg.title, {
         body: msg.body,

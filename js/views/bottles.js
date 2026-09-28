@@ -186,6 +186,11 @@ function customForm(_ctx, done, back, bare) {
       const b = num(/** @type {HTMLInputElement} */ (row.querySelector(`#b-mg2-${i}`)).value);
       const ingredient = ing === '__other' ? other : ing;
       if (!ingredient) return fail('Enter the active ingredient.');
+      if (ing === '__other') {
+        // A tracked ingredient typed as free text would escape its limits.
+        const same = knownIn(other, known);
+        if (same) return fail(`That is ${same}. Choose ${same} from the list, so it counts toward ${same} limits.`);
+      }
       if (a === null) return fail(`Enter the strength of ${ingredient} in mg.`);
       if (a !== b) return fail(`The two strengths for ${ingredient} do not match. Read them from the label again.`);
       components.push({ ingredient, strengthMg: a, strengthPer });
@@ -220,6 +225,24 @@ function customForm(_ctx, done, back, bare) {
     h('button', { class: 'btn btn-primary btn-big', type: 'submit' }, 'Add this medicine'),
   );
   return { title: 'Enter from the label', back, node, bare };
+}
+
+/* Other names for ingredients the app tracks, so they cannot be entered as
+   free text and escape the limits. Names, not doses. */
+const ALIASES = { acetaminophen: 'paracetamol', apap: 'paracetamol' };
+
+/**
+ * The tracked ingredient a free-text entry names, if any.
+ * @param {string} text @param {string[]} known @returns {string | null}
+ */
+export function knownIn(text, known) {
+  const words = text.toLowerCase().split(/[^a-z]+/).filter(Boolean);
+  for (const w of words) {
+    if (known.includes(w)) return w;
+    const alias = /** @type {Record<string, string>} */ (ALIASES)[w];
+    if (alias && known.includes(alias)) return alias;
+  }
+  return null;
 }
 
 /** Resize a photo to at most 1000 px so it stores small. @param {File} file */

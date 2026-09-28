@@ -19,10 +19,10 @@ import { state, ingredientsOf, ruleFor, engineChild, bottleStatus } from '../sta
 import { checkDose } from '../engine/checkDose.js';
 import { componentsForAmount } from '../engine/amounts.js';
 import { now, timeZone } from '../clock.js';
-import { formatWhen, formatDuration, formatMg, formatAmount, formatStrength, formatTime, toLocalInput, fromLocalInput, formatAgeDays, formatInterval } from '../format.js';
+import { formatWhen, formatDuration, formatMg, formatAmount, formatStrength, formatTime, toLocalInput, fromLocalInput, formatAgeDays, formatInterval, parseAmount } from '../format.js';
 import { cardStatus, cap } from '../status.js';
 import { statusRow } from './home.js';
-import { BACKDATE_MAX_MS, SCHEDULE_PRESET_HOURS } from '../config.js';
+import { BACKDATE_MAX_MS, SCHEDULE_PRESET_HOURS, UNDO_MS } from '../config.js';
 import { GUIDANCE } from '../content/guidance.js';
 import { EMERGENCY } from '../constants.js';
 import { refreshReminders } from '../reminders.js';
@@ -46,6 +46,7 @@ import { listNames } from '../schedule.js';
  * @property {number | null} givenAt   null = "just now", fixed at the moment of logging
  * @property {'DOCTOR_ADVISED' | 'ALREADY_GIVEN' | null} override
  * @property {string} [statusSeen]    the status the parent was shown and accepted
+ * @property {string} [situation]     fingerprint of the situation the override was given for
  */
 
 /** @type {Draft | null} */
@@ -174,10 +175,9 @@ async function amountStep(ctx, child, bottle, base) {
   const picture = h('div', { class: 'picture' });
   const error = h('p', { class: 'error', role: 'alert', hidden: true });
 
-  const parse = () => {
-    const v = Number(amount.value.replace(',', '.').trim());
-    return Number.isFinite(v) && v > 0 && Math.round(v * 100) === v * 100 ? v : null;
-  };
+  // Read the text, not float arithmetic: 4.4 * 100 is 440.00000000000006,
+  // and rejecting a correct 4.4 mL invites rounding it up to 4.5 or 5.
+  const parse = () => parseAmount(amount.value);
   const update = () => {
     const v = parse();
     picture.replaceChildren(liquid ? syringe(v ?? 0) : tablets(v ?? 0, bottle.form));
@@ -297,7 +297,12 @@ async function runCheck(child, bottle) {
 async function checkStep(ctx, child, bottle, base) {
   const d = /** @type {Draft} */ (draft);
   const { check, history, at } = await runCheck(child, bottle);
+  // An override answers one situation. If anything has changed since (a
+  // dose logged elsewhere, a different status), it no longer applies.
+  const now_situation = situation(check);
+  if (d.override && d.situation !== now_situation) d.override = null;
   d.statusSeen = check.status;
+  d.situation = now_situation;
   if (check.status === 'OK') {
     d.override = null;
     ctx.go(`${base}&step=confirm`, { replace: true });
@@ -417,6 +422,32 @@ async function checkStep(ctx, child, bottle, base) {
   return { title: view.title, back: base, node };
 }
 
+/**
+ * What the override was given for: the status, when the next dose would be
+ * allowed, and the last dose of each ingredient. Any change, and the parent
+ * is asked again.
+ * @param {ProductCheck} check
+ */
+function situation(check) {
+  return JSON.stringify([
+    check.status,
+    check.nextAllowedAt,
+    Object.entries(check.perIngredient).map(([k, c]) => [k, c.lastDose?.doseId ?? null, c.dosesInLast24h]),
+  ]);
+}
+
+/**
+ * May this check be logged? OK always; otherwise only with an override given
+ * for exactly this situation, and a doctor's advice only ever covers "too soon".
+ * @param {Draft} d @param {ProductCheck} check
+ */
+function overrideCovers(d, check) {
+  if (check.status === 'OK') return true;
+  if (!d.override || d.situation !== situation(check)) return false;
+  if (d.override === 'DOCTOR_ADVISED') return check.status === 'TOO_SOON';
+  return d.override === 'ALREADY_GIVEN';
+}
+
 /* ---------------- step 5: confirm ---------------- */
 
 /** @param {Ctx} ctx @param {Child} child @param {Bottle} bottle @param {string} base @returns {Promise<Screen>} */
@@ -426,7 +457,7 @@ async function confirmStep(ctx, child, bottle, base) {
   // Something changed since the check (another dose logged, the clock moved
   // past a limit): go back and show the new answer. An override covers only
   // the situation it was given for.
-  if (check.status !== 'OK' && (!d.override || check.status !== d.statusSeen)) {
+  if (!overrideCovers(d, check)) {
     ctx.go(`${base}&step=check`, { replace: true });
     return { title: 'Checking', node: h('div') };
   }
@@ -442,9 +473,10 @@ async function confirmStep(ctx, child, bottle, base) {
     btn.disabled = true;
     // Last look, at the real moment of logging.
     const again = await runCheck(child, bottle);
-    if (again.check.status !== 'OK' && (!d.override || again.check.status !== d.statusSeen)) {
-      toast('Something changed. Check again before logging.');
-      ctx.go(`${base}&step=check`, { replace: true });
+    const tooOld = d.givenAt !== null && d.givenAt < now() - BACKDATE_MAX_MS;
+    if (tooOld || !overrideCovers(d, again.check)) {
+      toast(tooOld ? 'That time is now too long ago. Enter it again.' : 'Something changed. Check again before logging.');
+      ctx.go(tooOld ? base : `${base}&step=check`, { replace: true });
       return;
     }
     const who = by.value.trim() || 'Someone';
@@ -567,7 +599,7 @@ async function doneStep(ctx) {
       h('span', { class: 'status-icon' }, icon('tick')),
       h('p', null, h('strong', null, 'Logged. '), `${formatAmount(dose.amount, dose.bottle.form)} of ${dose.bottle.name} for ${child.name} at ${formatTime(dose.givenAt, tz)}.`),
     ),
-    h('button', { class: 'btn btn-secondary', onclick: undo }, icon('undo'), 'Undo'),
+    now() - dose.loggedAt < UNDO_MS ? h('button', { class: 'btn btn-secondary', onclick: undo }, icon('undo'), 'Undo') : null,
     worrying ? h('div', { class: 'notice notice-danger', role: 'alert' },
       h('strong', null, GUIDANCE.overdose.title),
       h('p', null, GUIDANCE.overdose.text),

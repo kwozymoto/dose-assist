@@ -390,6 +390,21 @@ describe('input validation', () => {
     assert.throws(() => checkIngredient(input({ history: [{ id: 'x', givenAt: NaN, components: [] }] })), /givenAt/);
   });
 
+  test('a rule with a missing or misspelled field throws rather than skipping that check', () => {
+    for (const field of ['minIntervalMinutes', 'maxDosesPer24h', 'maxSingleMg', 'maxMgPer24h', 'minAgeDays']) {
+      const rules = structuredClone(RULES);
+      const v = rules.ingredients.alpha[field];
+      delete rules.ingredients.alpha[field];
+      rules.ingredients.alpha[`${field}X`] = v;
+      assert.throws(() => checkIngredient(input({ rules })), new RegExp(field), field);
+    }
+    const rules = structuredClone(RULES);
+    rules.ingredients.alpha.maxDosesPer24h = 0;
+    assert.throws(() => checkIngredient(input({ rules })), /maxDosesPer24h/);
+    rules.ingredients.alpha.maxDosesPer24h = 3.5;
+    assert.throws(() => checkIngredient(input({ rules })), /whole number/);
+  });
+
   test('a component with bad mg throws', () => {
     assert.throws(() => checkIngredient(input({ history: [{ id: 'x', givenAt: NOW, components: [{ ingredient: 'alpha', mg: -1 }] }] })), /mg/);
   });

@@ -1,6 +1,6 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { planNotices, triage, listNames } from '../js/schedule.js';
+import { planNotices, triage, listNames, noticeRev } from '../js/schedule.js';
 import { RULES, NOW, HOUR, MIN, TZ } from './engine/fixtures.mjs';
 
 const child = { id: 'c1', name: 'Mia', colour: 'teal', dateOfBirth: '2022-03-01', createdAt: 0 };
@@ -105,6 +105,17 @@ describe('triage', () => {
     assert.equal(t.due.length, 2);
     assert.equal(t.upcoming.length, 1);
   });
+});
+
+test('noticeRev changes when the words change at the same time (a stale scheduled push)', () => {
+  const r = rem({ kind: 'scheduled', fireAt: NOW + 4 * HOUR, label: "doctor's schedule" });
+  const [before] = plan([r], [dose('alpha', 5 * HOUR)]);
+  const [after] = plan([r], [dose('alpha', 5 * HOUR), dose('alpha', HOUR)]);
+  assert.equal(before.fireAt, after.fireAt);
+  assert.notEqual(before.body, after.body);
+  assert.notEqual(noticeRev(before), noticeRev(after));
+  assert.equal(noticeRev(before), noticeRev({ ...before }));
+  assert.match(noticeRev(before), /^[0-9a-f]{8}$/);
 });
 
 test('listNames', () => {

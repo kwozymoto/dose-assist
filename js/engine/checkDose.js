@@ -57,6 +57,7 @@ export function checkIngredient(input) {
     warnings.push('NO_RULES_FOR_INGREDIENT');
     return { status: 'OK', nextAllowedAt: null, remainingMgIn24h: null, ...common };
   }
+  assertRule(ingredient, rule);
   if (rule.unverified && rule.unverified.length > 0) warnings.push('RULE_UNVERIFIED');
 
   const cap = rule.maxMgPer24h;
@@ -189,6 +190,23 @@ function longUse(items, now, hours) {
   let start = items.length - 1;
   while (start > 0 && items[start].givenAt - items[start - 1].givenAt <= DAY_MS) start -= 1;
   return now - items[start].givenAt > hours * HOUR_MS;
+}
+
+/** Fields every check depends on. A missing one must stop the check, not skip it. */
+const REQUIRED = /** @type {const} */ (['minIntervalMinutes', 'maxDosesPer24h', 'maxSingleMg', 'maxMgPer24h', 'minAgeDays']);
+
+/**
+ * Throws if a rule is missing a field or has a nonsense value. Without this,
+ * a misspelled `minIntervalMinute` would compare against undefined and every
+ * dose would pass the interval check.
+ * @param {string} ingredient @param {import('./types.js').IngredientRule} rule
+ */
+export function assertRule(ingredient, rule) {
+  for (const k of REQUIRED) {
+    const v = rule[k];
+    if (typeof v !== 'number' || !Number.isFinite(v) || v <= 0) throw new TypeError(`rules for ${ingredient}: ${k} must be a positive number`);
+  }
+  if (!Number.isInteger(rule.maxDosesPer24h)) throw new TypeError(`rules for ${ingredient}: maxDosesPer24h must be a whole number`);
 }
 
 /** @param {IngredientInput} input */

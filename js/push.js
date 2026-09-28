@@ -11,6 +11,7 @@
 import * as db from './db.js';
 import { PUSH_URL, VAPID_PUBLIC_KEY } from './config.js';
 import { encryptPush, b64url, unb64url } from './webpush.js';
+import { noticeRev } from './schedule.js';
 
 /** @typedef {import('./schedule.js').Notice} Notice */
 
@@ -88,7 +89,7 @@ export async function syncPush(upcoming) {
   const enc = new TextEncoder();
   const items = [];
   for (const n of list) {
-    const payload = { v: 1, rid: n.reminderId, rev: n.fireAt, title: n.title, body: n.body, tag: n.tag, url: n.url, logUrl: n.logUrl };
+    const payload = { v: 1, rid: n.reminderId, rev: noticeRev(n), title: n.title, body: n.body, tag: n.tag, url: n.url, logUrl: n.logUrl };
     const body = await encryptPush(enc.encode(JSON.stringify(payload)), to);
     items.push({ id: n.reminderId, fireAt: n.fireAt, body: b64url(body) });
   }

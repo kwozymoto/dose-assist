@@ -2,7 +2,7 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   formatTime, formatWhen, formatDuration, formatAgo, formatInterval, formatAgeDays,
-  formatMg, formatAmount, formatStrength, toLocalInput, fromLocalInput, formatDate,
+  formatMg, formatAmount, formatStrength, toLocalInput, fromLocalInput, formatDate, parseAmount,
 } from '../js/format.js';
 import { cardStatus } from '../js/status.js';
 import { checkIngredient } from '../js/engine/checkDose.js';
@@ -91,6 +91,24 @@ describe('amounts', () => {
     assert.equal(formatAmount(0.5, 'tablet'), '0.5 tablets');
     assert.equal(formatStrength({ strengthMg: 250, strengthPer: 5 }, 'liquid'), '250 mg / 5 mL');
     assert.equal(formatStrength({ strengthMg: 500, strengthPer: 1 }, 'tablet'), '500 mg tablet');
+  });
+});
+
+describe('parseAmount', () => {
+  test('every amount to two decimals from 0.01 to 20 is accepted exactly', () => {
+    for (let i = 1; i <= 2000; i += 1) {
+      const text = (i / 100).toFixed(2).replace(/\.?0+$/, '');
+      assert.equal(parseAmount(text), Number(text), text);
+    }
+  });
+  test('4.4 and friends (float traps) are accepted', () => {
+    for (const t of ['4.4', '4.6', '8.2', '1.1', '2.2', '2.3', '0.1']) assert.equal(parseAmount(t), Number(t));
+  });
+  test('comma decimals, spaces', () => {
+    assert.equal(parseAmount(' 7,5 '), 7.5);
+  });
+  test('rubbish is refused', () => {
+    for (const t of ['', '0', '0.0', '-1', '1.234', '5ml', 'abc', '1e2', '.5', '5.', 'NaN']) assert.equal(parseAmount(t), null, t);
   });
 });
 

@@ -251,7 +251,8 @@ textarea.input { min-height: 96px; }
 .notice .btn { flex: 1 1 100%; }
 .notice-warn { background: var(--warn-bg); color: var(--warn-text); }
 .notice-test { background: var(--test-bg); color: var(--test-text); }
-.notice-danger { background: var(--stop-bg); color: var(--text); border: 2px solid var(--stop); flex-direction: column; }
+.notice-danger { background: var(--stop-bg); color: var(--text); border: 2px solid var(--stop); flex-direction: column; align-items: stretch; }
+.notice-danger > * { flex: none; }
 .notice-undo { background: var(--ok-bg); }
 .bullets { margin: 6px 0 0; padding-left: 1.2em; display: flex; flex-direction: column; gap: 4px; }
 .badge { display: inline-block; margin: 4px 6px 0 0; padding: 2px 8px; border-radius: 999px; background: var(--surface-2); font-size: 0.85rem; font-weight: 650; color: var(--text); }

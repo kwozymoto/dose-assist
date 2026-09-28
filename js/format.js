@@ -155,3 +155,15 @@ function offsetAt(ms, timeZone) {
   const asUtc = Date.UTC(y, m - 1, d, h, min);
   return asUtc - Math.floor(ms / MINUTE_MS) * MINUTE_MS;
 }
+
+/**
+ * An amount as typed: digits, optionally a point or comma and up to two
+ * decimals. Returns null for anything else.
+ * @param {string} text
+ */
+export function parseAmount(text) {
+  const t = text.trim();
+  if (!/^\d+(?:[.,]\d{1,2})?$/.test(t)) return null;
+  const v = Number(t.replace(',', '.'));
+  return v > 0 ? v : null;
+}

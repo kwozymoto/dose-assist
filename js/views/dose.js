@@ -5,10 +5,11 @@
 
 import { h, confirmDialog, toast } from '../dom.js';
 import * as db from '../db.js';
-import { state } from '../state.js';
+import { state, engineChild } from '../state.js';
 import { componentsForAmount } from '../engine/amounts.js';
 import { now, timeZone } from '../clock.js';
-import { formatWhen, formatAmount, formatMg, toLocalInput, fromLocalInput, formatStrength } from '../format.js';
+import { formatWhen, formatAmount, formatMg, toLocalInput, fromLocalInput, formatStrength, parseAmount } from '../format.js';
+import { checkDose } from '../engine/checkDose.js';
 import { refreshReminders } from '../reminders.js';
 import { field } from './child.js';
 
@@ -61,9 +62,13 @@ export async function doseEdit(ctx) {
 
   const save = async (/** @type {Event} */ e) => {
     e.preventDefault();
-    const amt = Number(amount.value.replace(',', '.'));
-    const givenAt = fromLocalInput(at.value, tz);
-    if (!Number.isFinite(amt) || amt <= 0) { error.textContent = 'Enter the amount.'; error.hidden = false; return; }
+    const amt = parseAmount(amount.value);
+    // The time box has minute precision. Only a time the person actually
+    // changed is written, or every edit would shift the dose by up to a
+    // minute (and, at a DST fall-back, by an hour).
+    const timeChanged = at.value !== toLocalInput(dose.givenAt, tz);
+    const givenAt = timeChanged ? fromLocalInput(at.value, tz) : dose.givenAt;
+    if (amt === null) { error.textContent = 'Enter the amount, for example 5 or 2.5.'; error.hidden = false; return; }
     if (givenAt === null || givenAt > now()) { error.textContent = 'Enter a time that is not in the future.'; error.hidden = false; return; }
     /** @type {Record<string, any>} */
     const changes = {};
@@ -76,7 +81,21 @@ export async function doseEdit(ctx) {
     if (by.value.trim() && by.value.trim() !== dose.givenBy) changes.givenBy = by.value.trim();
     if (note.value.trim() !== (dose.note ?? '')) changes.note = note.value.trim();
     if (Object.keys(changes).length === 0) { ctx.go(back); return; }
-    const reason = await confirmDialog({ title: 'Save this change?', body: 'The old values are kept in this dose’s history.', confirm: 'Save', input: { label: 'Why? (optional)' } });
+    // Say plainly if, with this change, the dose breaks a limit. The record
+    // is still saved as the person says it happened.
+    let warning = '';
+    if (child && (changes.components || changes.givenAt !== undefined)) {
+      // Only what came before it: the question is whether this dose, at its
+      // time, was within the limits.
+      const when = changes.givenAt ?? dose.givenAt;
+      const others = (await db.doses.forChild(child.id)).filter((x) => x.id !== dose.id && x.givenAt <= when);
+      const check = checkDose({
+        components: changes.components ?? dose.components, rules: state.rules, history: others,
+        now: when, child: engineChild(child), timeZone: tz,
+      });
+      if (check.status !== 'OK') warning = 'With this change, this dose is outside the usual limits. It will be recorded as you enter it. If your child may have had too much, call the Poisons Centre.';
+    }
+    const reason = await confirmDialog({ title: 'Save this change?', body: warning || 'The old values are kept in this dose’s history.', confirm: 'Save', input: { label: 'Why? (optional)' } });
     if (!reason) return;
     await db.doses.edit(dose.id, changes, { by: who(), at: now(), reason: reason.value.trim() || undefined });
     await refreshReminders();
