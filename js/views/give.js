@@ -28,6 +28,7 @@ import { cardStatus, cap } from '../status.js';
 import { statusRow } from './home.js';
 import { BACKDATE_MAX_MS, SCHEDULE_PRESET_HOURS, UNDO_MS, WEIGHT_FRESH_MS, SHOW_TEST_NOTICE } from '../config.js';
 import { checkWeight } from '../engine/weight.js';
+import { weightCheckup, savedDoseCheckup, bottleCheckup } from '../engine/checkups.js';
 import { GUIDANCE } from '../content/guidance.js';
 import { EMERGENCY } from '../constants.js';
 import { refreshReminders } from '../reminders.js';
@@ -59,6 +60,8 @@ import { clampGap } from '../engine/gap.js';
  * @property {'ALREADY_GIVEN' | null} override
  * @property {string} [statusSeen]    the status the parent was shown and accepted
  * @property {string} [situation]     fingerprint of the situation the override was given for
+ * @property {boolean} [remember]      save the amount as the child's usual dose when logged
+ * @property {boolean} [fromSaved]     the amount came from the saved usual dose
  */
 
 /** @type {Draft | null} */
@@ -90,6 +93,14 @@ async function giveStep(ctx) {
 
   const base = `/give?child=${child.id}&bottle=${bottle.id}`;
   const valid = draft && draft.childId === child.id && draft.bottleId === bottle.id;
+  // The usual dose saved for this child and bottle: straight to the check and
+  // the confirm screen, which shows the amount and lets it be changed.
+  const saved = child.usualDoses?.[bottle.id];
+  if (!step && !valid && saved && !q.get('change') && !q.get('when')) {
+    draft = { childId: child.id, bottleId: bottle.id, amount: saved.amount, givenAt: null, override: null, remember: true, fromSaved: true };
+    ctx.go(`${base}&step=check`, { replace: true });
+    return { title: 'Checking', node: h('div') };
+  }
   if ((step === 'check' || step === 'confirm') && !valid) {
     ctx.go(base, { replace: true });
     return { title: 'Give a dose', node: h('div') };
@@ -191,7 +202,7 @@ async function amountStep(ctx, child, bottle, base) {
 
   const amount = /** @type {HTMLInputElement} */ (h('input', {
     class: 'input input-amount', id: 'amount', type: 'text', inputmode: 'decimal', autocomplete: 'off',
-    value: keep ? String(keep.amount) : '', 'aria-describedby': 'amount-help amount-mg',
+    value: keep ? String(keep.amount) : child.usualDoses?.[bottle.id] ? String(child.usualDoses[bottle.id].amount) : '', 'aria-describedby': 'amount-help amount-mg',
   }));
   const mgOut = h('p', { id: 'amount-mg', class: 'mg-line', 'aria-live': 'polite' });
   const picture = h('div', { class: 'picture' });
@@ -231,6 +242,10 @@ async function amountStep(ctx, child, bottle, base) {
   );
   for (const r of [whenNow, whenEarlier]) r.addEventListener('change', () => { atWrap.hidden = !whenEarlier.checked; });
 
+  const remember = /** @type {HTMLInputElement} */ (h('input', { type: 'checkbox', id: 'remember', checked: keep?.remember ?? true }));
+  const rememberBox = h('label', { class: 'check', for: 'remember' }, remember,
+    h('span', null, `Remember this as ${child.name}’s usual dose of ${bottle.name}`, h('span', { class: 'small muted', style: 'display:block' }, 'Next time, the medicine’s button goes straight to the check. You can change it any time.')));
+
   const next = h('button', { class: 'btn btn-primary btn-big', type: 'submit' }, 'Continue');
   const form = h('form', {
     class: 'stack',
@@ -246,7 +261,7 @@ async function amountStep(ctx, child, bottle, base) {
         if (givenAt > t2) { error.textContent = 'That time is in the future.'; error.hidden = false; at.focus(); return; }
         if (givenAt < t2 - BACKDATE_MAX_MS) { error.textContent = `You can go back up to ${formatDuration(BACKDATE_MAX_MS)}. For an older dose, log it now and then edit its time from the timeline.`; error.hidden = false; at.focus(); return; }
       }
-      draft = { childId: child.id, bottleId: bottle.id, amount: v, givenAt, override: null };
+      draft = { childId: child.id, bottleId: bottle.id, amount: v, givenAt, override: null, remember: remember.checked };
       ctx.go(`${base}&step=check`);
     },
   },
@@ -267,6 +282,7 @@ async function amountStep(ctx, child, bottle, base) {
       mgOut,
     ),
     picture,
+    rememberBox,
     h('fieldset', { class: 'field' },
       h('legend', { class: 'label' }, 'When?'),
       h('div', { class: 'segmented' },
@@ -456,11 +472,11 @@ async function checkStep(ctx, child, bottle, base) {
     backdated
       ? h('div', { class: 'actions' },
         h('button', { class: 'btn btn-primary btn-big', onclick: alreadyGiven }, 'It was given: record it'),
-        h('a', { class: 'btn btn-secondary', href: '#' + base }, 'Change the time or amount'),
+        h('a', { class: 'btn btn-secondary', href: `#${base}&change=1` }, 'Change the time or amount'),
       )
       : h('div', { class: 'actions' },
         check.status === 'EXCEEDS_LIMIT' || check.status === 'WEIGHT_LIMIT'
-          ? h('a', { class: 'btn btn-primary btn-big', href: '#' + base }, 'Change the amount')
+          ? h('a', { class: 'btn btn-primary btn-big', href: `#${base}&change=1` }, 'Change the amount')
           : check.status === 'BLOCKED'
             ? h('a', { class: 'btn btn-primary btn-big', href: `tel:${EMERGENCY.healthline.tel}` }, icon('phone'), `Call Healthline ${EMERGENCY.healthline.display}`)
             : h('a', { class: 'btn btn-primary btn-big', href: '#/' }, 'Don’t give it now'),
@@ -471,7 +487,7 @@ async function checkStep(ctx, child, bottle, base) {
       ),
     check.status === 'BLOCKED' ? null : h('a', { class: 'btn btn-quiet', href: `tel:${EMERGENCY.healthline.tel}` }, icon('phone'), `Unsure? Call Healthline ${EMERGENCY.healthline.display}`),
   );
-  return { title: view.title, back: base, node };
+  return { title: view.title, back: d.fromSaved ? `/child/${child.id}` : `${base}&change=1`, node };
 }
 
 /**
@@ -519,6 +535,7 @@ async function confirmStep(ctx, child, bottle, base) {
   const by = /** @type {HTMLInputElement} */ (h('input', { class: 'input', id: 'given-by', list: 'caregivers', value: state.caregiver, autocomplete: 'name', placeholder: 'e.g. Mum, Dad, Nana' }));
   const warnings = warningList(check, child, bottle);
   const weightNotes = weightCautions(check, child, tz);
+  const checkNotes = await checkupNotes(ctx, child, bottle, d, base, t);
   const byError = h('p', { class: 'error', role: 'alert', hidden: true }, 'Enter who gave it, so everyone sharing care can see.');
   by.addEventListener('input', () => { byError.hidden = true; });
 
@@ -531,7 +548,7 @@ async function confirmStep(ctx, child, bottle, base) {
     const tooOld = d.givenAt !== null && d.givenAt < now() - BACKDATE_MAX_MS;
     if (tooOld || !overrideCovers(d, again.check)) {
       toast(tooOld ? 'That time is now too long ago. Enter it again.' : 'Something changed. Check again before logging.');
-      ctx.go(tooOld ? base : `${base}&step=check`, { replace: true });
+      ctx.go(tooOld ? `${base}&change=1` : `${base}&step=check`, { replace: true });
       return;
     }
     const who = by.value.trim();
@@ -560,6 +577,13 @@ async function confirmStep(ctx, child, bottle, base) {
       statusAtLog: again.check.status,
     };
     await db.doses.add(dose, who);
+    if (d.remember) {
+      const fresh = await db.children.get(child.id);
+      const prev = fresh?.usualDoses?.[bottle.id];
+      if (fresh && (!prev || prev.amount !== d.amount)) {
+        await db.children.save({ ...fresh, usualDoses: { ...(fresh.usualDoses ?? {}), [bottle.id]: { amount: d.amount, setAt: logTime, reviewedAt: logTime } } });
+      }
+    }
     if (who !== state.caregiver && !state.caregiver) { state.caregiver = who; await db.meta.set('caregiverName', who); }
     state.lastLogged = { doseId: dose.id, at: logTime, childId: child.id };
     logged = { doseId: dose.id };
@@ -576,6 +600,7 @@ async function confirmStep(ctx, child, bottle, base) {
         h('strong', null, child.name),
       ),
       h('p', { class: 'confirm-amount' }, formatAmount(d.amount, bottle.form)),
+      d.fromSaved ? h('p', { class: 'small center' }, `${child.name}’s usual dose`) : null,
       bottle.form === 'liquid' ? syringe(d.amount) : tablets(d.amount, bottle.form),
       h('dl', { class: 'facts' },
         h('dt', null, 'Medicine'), h('dd', null, bottle.name),
@@ -591,6 +616,7 @@ async function confirmStep(ctx, child, bottle, base) {
           c.lastDose ? `Last ${k}: ${formatWhen(c.lastDose.givenAt, t, tz)} (${formatAgo(c.lastDose.givenAt, t)}). ` : '',
           `In the last 24 hours: ${c.dosesInLast24h} ${c.dosesInLast24h === 1 ? 'dose' : 'doses'}, ${formatMg(c.mgInLast24h)}.`))))
       : null,
+    checkNotes,
     weightNotes,
     warnings,
     h('div', { class: 'field' },
@@ -600,9 +626,9 @@ async function confirmStep(ctx, child, bottle, base) {
       h('datalist', { id: 'caregivers' }, names.map((n) => h('option', { value: n }))),
     ),
     h('button', { class: 'btn btn-primary btn-big', id: 'log-btn', type: 'submit' }, icon('tick'), 'Log this dose'),
-    h('a', { class: 'btn btn-secondary', href: '#' + base }, 'Change something'),
+    h('a', { class: 'btn btn-secondary', href: `#${base}&change=1` }, d.fromSaved ? 'Change the amount or time' : 'Change something'),
   );
-  return { title: 'Check and log', back: base, node };
+  return { title: 'Check and log', back: d.fromSaved ? `/child/${child.id}` : `${base}&change=1`, node };
 }
 
 /** @param {ViewCheck} check @param {Child} child @param {Bottle} bottle */
@@ -705,6 +731,65 @@ async function doneStep(ctx) {
     ),
   );
   return { title: 'Dose logged', back: '/', node };
+}
+
+/**
+ * Questions that keep the saved numbers honest: is the weight still right,
+ * is the usual dose still right, is this still the bottle in use? They never
+ * block logging. Owner's intervals (engine/checkups.js).
+ * @param {Ctx} ctx @param {Child} child @param {Bottle} bottle @param {Draft} d @param {string} base @param {number} t
+ */
+async function checkupNotes(ctx, child, bottle, d, base, t) {
+  const tz = timeZone();
+  const out = [];
+  const w = await db.weights.latest(child.id);
+  const wc = weightCheckup({ dateOfBirth: child.dateOfBirth, weighedAt: w?.recordedAt ?? null, confirmedAt: child.weightConfirmedAt ?? null, now: t, timeZone: tz });
+  const stillRight = async () => {
+    const fresh = await db.children.get(child.id);
+    if (fresh) await db.children.save({ ...fresh, weightConfirmedAt: now() });
+    ctx.refresh();
+  };
+  if (wc.due && wc.reason === 'none') {
+    out.push(h('div', { class: 'notice' }, icon('help'), h('p', null, `Add ${child.name}’s weight so the app can check amounts against it.`),
+      h('a', { class: 'btn btn-secondary', href: `#/child/${child.id}/edit` }, 'Add weight')));
+  } else if (wc.due && w) {
+    out.push(h('div', { class: 'notice' }, icon('help'), h('p', null, `Have you weighed ${child.name} lately? The weight on record is ${w.kg} kg, from ${formatDate(w.recordedAt, tz)}.`),
+      h('div', { class: 'button-row' },
+        h('a', { class: 'btn btn-secondary', href: `#/child/${child.id}/edit` }, 'Update weight'),
+        h('button', { class: 'btn btn-secondary', type: 'button', onclick: stillRight }, 'Still right'))));
+  }
+  if (d.fromSaved) {
+    const saved = child.usualDoses?.[bottle.id];
+    const sc = savedDoseCheckup({ saved, weighedAt: w?.recordedAt ?? null, now: t });
+    if (sc.due && saved) {
+      const reviewed = async () => {
+        const fresh = await db.children.get(child.id);
+        const cur = fresh?.usualDoses?.[bottle.id];
+        if (fresh && cur) await db.children.save({ ...fresh, usualDoses: { ...fresh.usualDoses, [bottle.id]: { ...cur, reviewedAt: now() } } });
+        ctx.refresh();
+      };
+      out.push(h('div', { class: 'notice notice-warn' }, icon('warn'), h('p', null,
+        sc.reason === 'weight'
+          ? `${child.name}’s weight has changed since ${formatAmount(saved.amount, bottle.form)} was saved as the usual dose. Check the label: is it still right?`
+          : `${formatAmount(saved.amount, bottle.form)} has been ${child.name}’s usual dose since ${formatDate(Math.max(saved.setAt, saved.reviewedAt ?? 0), tz)}. Check the label: is it still right?`),
+        h('div', { class: 'button-row' },
+          h('button', { class: 'btn btn-secondary', type: 'button', onclick: reviewed }, 'Yes, still right'),
+          h('a', { class: 'btn btn-secondary', href: `#${base}&change=1` }, 'Change amount'))));
+    }
+  }
+  let lastUsedAt = null;
+  for (const x of await db.doses.all()) {
+    if (x.bottleId === bottle.id && !x.deletedAt && x.givenAt <= t && (lastUsedAt === null || x.givenAt > lastUsedAt)) lastUsedAt = x.givenAt;
+  }
+  if (bottleCheckup({ lastUsedAt, confirmedAt: bottle.confirmedAt ?? null, now: t }).due) {
+    const same = async () => { await db.bottles.save({ ...bottle, confirmedAt: now() }); ctx.refresh(); };
+    out.push(h('div', { class: 'notice notice-warn' }, icon('warn'), h('p', null,
+      `Still using ${bottle.name}, ${bottle.components.map((c) => `${formatStrength(c, bottle.form)} ${c.ingredient}`).join(' + ')}? It has not been used for a while. Check the label on the bottle in your hand.`),
+      h('div', { class: 'button-row' },
+        h('button', { class: 'btn btn-secondary', type: 'button', onclick: same }, 'Yes, same bottle'),
+        h('a', { class: 'btn btn-secondary', href: `#/bottles/new?then=${encodeURIComponent(`/give?child=${child.id}`)}` }, 'A different bottle'))));
+  }
+  return out.length ? h('div', { class: 'stack-sm' }, out) : null;
 }
 
 /**

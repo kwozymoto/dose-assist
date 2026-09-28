@@ -47,6 +47,8 @@ export const STORES = ['children', 'weights', 'bottles', 'photos', 'doses', 'aud
  * @property {string} colour
  * @property {string | null} dateOfBirth  YYYY-MM-DD
  * @property {string} [notes]
+ * @property {Record<string, {amount: number, setAt: number, reviewedAt?: number}>} [usualDoses]  the parent's usual dose, by bottle id; always shown on the confirm screen and checked like any other
+ * @property {number} [weightConfirmedAt]  the parent said the weight on record is still right
  * @property {Record<string, number>} [gapMinutes]  the parent's chosen gap between doses, by ingredient; read through clampGap, never trusted as stored
  * @property {number} createdAt
  * @property {number | null} [archivedAt]
@@ -70,6 +72,7 @@ export const STORES = ['children', 'weights', 'bottles', 'photos', 'doses', 'aud
  * @property {BottleComponent[]} components
  * @property {string | null} [photoId]
  * @property {string} [notes]
+ * @property {number} [confirmedAt]  the parent said this is still the bottle in use
  * @property {number} addedAt
  * @property {number | null} [archivedAt]
  *
