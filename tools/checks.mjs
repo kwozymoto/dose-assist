@@ -241,13 +241,19 @@ export function checkSw() {
 /* ------------------------------------------------------------------ */
 /* check_theme: contrast of every text/ground pair, both themes.        */
 
+const KIDS = ['kid-teal', 'kid-orange', 'kid-purple', 'kid-blue', 'kid-pink', 'kid-green'];
+const SKY = ['sky-1', 'sky-2', 'sky-3'];
+/* --primary is a fill (buttons, the mascot); text in the brand colour uses
+   --link. Child colours are pastel fills with --on-kid ink. Text also sits
+   straight on the sky behind the page. */
 const PAIRS = [
   ['text', 'bg'], ['text', 'surface'], ['text', 'surface-2'], ['muted', 'bg'], ['muted', 'surface'], ['muted', 'surface-2'],
-  ['primary', 'bg'], ['primary', 'surface'], ['primary-text', 'primary'], ['danger-text', 'danger'], ['stop', 'bg'], ['stop', 'surface'],
+  ['link', 'bg'], ['link', 'surface'], ['link', 'surface-2'], ['primary-text', 'primary'], ['danger-text', 'danger'], ['stop', 'bg'], ['stop', 'surface'],
   ['text', 'ok-bg'], ['text', 'soon-bg'], ['text', 'stop-bg'], ['text', 'none-bg'],
   ['ok', 'ok-bg'], ['soon', 'soon-bg'], ['stop', 'stop-bg'], ['none', 'none-bg'],
   ['warn-text', 'warn-bg'], ['test-text', 'test-bg'], ['bg', 'text'],
-  ['bg', 'kid-teal'], ['bg', 'kid-orange'], ['bg', 'kid-purple'], ['bg', 'kid-blue'], ['bg', 'kid-pink'], ['bg', 'kid-green'],
+  ...KIDS.map((k) => ['on-kid', k]),
+  ...SKY.flatMap((k) => [['text', k], ['muted', k], ['link', k]]),
 ];
 
 export function checkTheme() {
@@ -274,6 +280,21 @@ export function checkTheme() {
       const r = ratio(vars[fg], vars[bg]);
       n += 1;
       if (r < 4.5) problems.push(`${t}: --${fg} on --${bg} is ${r.toFixed(2)}:1, under 4.5:1`);
+    }
+  }
+  // A child's page tints the top of the sky with the child's colour.
+  const mixOf = (t) => Number(new RegExp(`\\[data-theme="${t}"\\]\\s*\\{[^}]*--kid-sky-mix:\\s*(\\d+)%`).exec(css)?.[1]);
+  const mix = (a, b, pct) => '#' + [1, 3, 5].map((i) => Math.round(parseInt(a.slice(i, i + 2), 16) * pct + parseInt(b.slice(i, i + 2), 16) * (1 - pct)).toString(16).padStart(2, '0')).join('');
+  for (const [t, vars] of Object.entries(themes)) {
+    const pct = mixOf(t);
+    if (!(pct >= 0 && pct <= 100)) { problems.push(`${t}: --kid-sky-mix missing`); continue; }
+    for (const k of KIDS) {
+      const ground = mix(vars[k], vars['sky-1'], pct / 100);
+      for (const fg of ['text', 'muted', 'link']) {
+        const r = ratio(vars[fg], ground);
+        n += 1;
+        if (r < 4.5) problems.push(`${t}: --${fg} on the ${k} sky is ${r.toFixed(2)}:1, under 4.5:1`);
+      }
     }
   }
   const lk = Object.keys(themes.light).sort().join();

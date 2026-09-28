@@ -1,5 +1,11 @@
 # Changelog
 
+## The Dreamy look; one child means Home is their page (unreleased)
+
+**Look.** The app now uses "Dreamy" (chosen from the three in `design/`): a sky-to-lilac sky with clouds by day and a starry twilight at night, frosted rounded cards, a floating tab bar, pastel periwinkle buttons, Quicksand headings and Nunito text (self-hosted in `css/fonts/`, OFL, with Latin Extended for macrons). On a screen about one child the top of the sky takes that child's colour. `--primary` is now a pastel fill; text in the brand colour uses the new `--link`. Child colours are pastel with `--on-kid` ink. `check_theme` now holds 114 pairs at 4.5:1, including text on every child-tinted sky in both themes. Stop screens keep a heavier border and the biggest words on the page.
+
+**Home.** A greeting with a small droplet character when there are several children. With one child, Home is that child's page, so Dose now is the first thing seen; the undo notice sits above it and the other notices below. The Dose now button follows a medicine in use (given in the last 24 hours) over one not in use.
+
 ## Dose now, and your own gap between doses (unreleased)
 
 **Rules** `data/rules.json` **2026.10.1**, review reset (still `reviewedBy: null`). New field `usualIntervalMaxMinutes`: paracetamol 360 (bpacnz 2018 and Healthify's April 2026 pain-relief page: every 4 to 6 hours) and ibuprofen 480 (Healthify's April 2026 calculator and pain-relief pages: every 6 to 8 hours). `minIntervalMinutes` is unchanged and remains the only hard limit. The checker requires the new field to be sourced and never below the minimum.

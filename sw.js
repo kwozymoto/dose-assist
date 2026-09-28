@@ -8,7 +8,7 @@
    if SHELL names a file that does not exist, or if a shell file changed
    since git HEAD without VERSION changing. */
 
-const VERSION = 'v6';
+const VERSION = 'v7';
 const CACHE = `dose-assist-${VERSION}`;
 
 const SHELL = [
@@ -16,6 +16,12 @@ const SHELL = [
   'index.html',
   'manifest.webmanifest',
   'css/app.css',
+  'css/fonts/quicksand-latin-wght-normal.woff2',
+  'css/fonts/quicksand-latin-ext-wght-normal.woff2',
+  'css/fonts/nunito-latin-wght-normal.woff2',
+  'css/fonts/nunito-latin-ext-wght-normal.woff2',
+  'css/fonts/QUICKSAND-OFL.txt',
+  'css/fonts/NUNITO-OFL.txt',
   'data/rules.json',
   'data/products.json',
   'icons/icon-192.png',

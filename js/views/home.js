@@ -12,6 +12,7 @@ import { pushStatus } from '../push.js';
 import { refreshReminders } from '../reminders.js';
 import { formatTime, formatDuration } from '../format.js';
 import { timeZone } from '../clock.js';
+import { childDetail } from './child.js';
 
 /** @typedef {import('../app.js').Ctx} Ctx */
 /** @typedef {import('../app.js').Screen} Screen */
@@ -39,6 +40,17 @@ export async function home(ctx) {
     ));
   }
 
+  // One child: their page is Home, so Dose now is the first thing seen.
+  if (kids.length === 1) {
+    const all = [...node.childNodes];
+    const lead = all.filter((n) => n instanceof HTMLElement && n.classList.contains('notice-undo'));
+    const after = all.filter((n) => !lead.includes(n));
+    const screen = await childDetail({ ...ctx, params: { id: kids[0].id } }, { asHome: true, lead, after });
+    return { ...screen, back: false, tab: 'home' };
+  }
+
+  node.prepend(hello(t));
+
   let soonest = Infinity;
   for (const child of kids) {
     const { rows } = await childRows(child, bottles);
@@ -51,6 +63,28 @@ export async function home(ctx) {
   // Countdowns: refresh every 30 s, and exactly when the next wait ends.
   const untilNext = soonest === Infinity ? Infinity : soonest - now() + 500;
   return { title: 'Dose Assist', node, tab: 'home', back: false, refreshEvery: Math.max(1000, Math.min(30000, untilNext)) };
+}
+
+/** "Good evening", with the little droplet. The words follow the local hour. @param {number} t */
+function hello(t) {
+  const hour = Number(new Intl.DateTimeFormat('en-NZ', { hour: 'numeric', hourCycle: 'h23', timeZone: timeZone() }).format(t));
+  const words = hour >= 5 && hour < 12 ? 'Good morning' : hour >= 12 && hour < 17 ? 'Good afternoon' : hour >= 17 && hour < 22 ? 'Good evening' : 'Hello';
+  return h('div', { class: 'hello' }, mascot(), h('div', null, h('h2', null, words), h('p', { class: 'muted' }, 'Here is how everyone is doing.')));
+}
+
+function mascot() {
+  const s = document.createElement('span');
+  s.className = 'mascot';
+  s.setAttribute('aria-hidden', 'true');
+  s.innerHTML = `<svg viewBox="0 0 80 88" width="64" height="72" focusable="false">
+    <path class="m-body" d="M40 6C40 6 12 34 12 55a28 28 0 0 0 56 0C68 34 40 6 40 6z"/>
+    <path class="m-shine" d="M24 52a16 16 0 0 1 8-13" fill="none" stroke-width="5" stroke-linecap="round"/>
+    <ellipse class="m-cheek" cx="24" cy="62" rx="6" ry="4"/><ellipse class="m-cheek" cx="56" cy="62" rx="6" ry="4"/>
+    <circle class="m-eye" cx="31" cy="54" r="3.6"/><circle class="m-eye" cx="49" cy="54" r="3.6"/>
+    <path class="m-smile" d="M33 64q7 7 14 0" fill="none" stroke-width="3.2" stroke-linecap="round"/>
+    <path class="m-spark" d="M66 14l2 5 5 2-5 2-2 5-2-5-5-2 5-2z"/>
+  </svg>`;
+  return s;
 }
 
 /**

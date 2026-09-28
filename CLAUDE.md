@@ -62,5 +62,5 @@ Testing tips: `?clock=+4h` in the URL moves the app's clock (a banner shows whil
 
 - JavaScript with `// @ts-check` and JSDoc types, strict. No `any` in `js/engine`.
 - User-facing text is plain, calm NZ English ("Next dose from 2:15pm"). 12-hour time with am/pm, no space.
-- Accessibility: every touchable has an accessible name; minimum tap target 56 px; status never conveyed by colour alone (colour + icon + words). Colours are CSS tokens only; `check_theme` holds every text/ground pair at 4.5:1 in both themes.
+- Accessibility: every touchable has an accessible name; minimum tap target 56 px; status never conveyed by colour alone (colour + icon + words). Colours are CSS tokens only; `check_theme` holds every text/ground pair at 4.5:1 in both themes. `--primary` is a pastel fill, never text: text in the brand colour uses `--link`, text on a child colour uses `--on-kid`.
 - Emergency numbers (Healthline 0800 611 116, emergency 111, Poisons Centre 0800 764 766) come from `js/constants.js` only. (`check_numbers`.)

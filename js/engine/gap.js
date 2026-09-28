@@ -102,8 +102,9 @@ function plan(phase, gapMinutes) {
   return { phase, ruleAt: null, targetAt: null, readySince: null, gapMinutes };
 }
 
-/** Which state leads the big button, best first. Idle is neutral: it never says "go". */
-const HERO_RANK = /** @type {Record<Phase, number>} */ ({ ready: 0, idle: 1, early: 2, wait: 3, limit: 4, blocked: 5, none: 6 });
+/** Which state leads the big button, best first. A medicine in use (given in
+    the last 24 hours) leads; one not in use (idle) only leads when nothing is. */
+const HERO_RANK = /** @type {Record<Phase, number>} */ ({ ready: 0, early: 1, wait: 2, limit: 3, blocked: 4, idle: 5, none: 6 });
 
 /**
  * Pick the medicine that drives the big Dose now button.

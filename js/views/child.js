@@ -30,8 +30,12 @@ export const SYMPTOM_FLAGS = [
   { id: 'pain', name: 'In pain' },
 ];
 
-/** @param {Ctx} ctx @returns {Promise<Screen>} */
-export async function childDetail(ctx) {
+/**
+ * @param {Ctx} ctx
+ * @param {{asHome?: boolean, lead?: Node[], after?: Node[]}} [opts]  asHome: the only child, shown as Home; Home's notices go in `lead` (above Dose now) and `after` (below it)
+ * @returns {Promise<Screen>}
+ */
+export async function childDetail(ctx, opts = {}) {
   const child = await db.children.get(ctx.params.id);
   if (!child) { ctx.go('/', { replace: true }); return { title: '', node: h('div') }; }
   const bottles = await db.bottles.list();
@@ -47,13 +51,16 @@ export async function childDetail(ctx) {
   const facts = [ageText(child.dateOfBirth, t), weight ? `${weight.kg} kg (${formatDate(weight.recordedAt, tz)})` : null].filter(Boolean).join(' · ');
 
   const dose = doseNow(child, rows, ctx);
+  const only = opts.asHome || (await db.children.list()).length === 1;
   const node = h('div', { class: 'stack' },
+    ...(opts.lead ?? []),
     h('div', { class: `kid-head kid-${child.colour}` },
       h('span', { class: 'avatar', 'aria-hidden': 'true' }, child.name.slice(0, 1).toUpperCase()),
       h('span', { class: 'kid-name' }, h('span', null, child.name), facts ? h('span', { class: 'muted small' }, facts) : null),
     ),
     child.notes ? h('p', { class: 'notice' }, child.notes) : null,
     dose.node,
+    ...(opts.after ?? []),
     rows.length ? h('h2', null, 'Each medicine') : null,
     h('ul', { class: 'rows' }, rows.map((r) => statusRow(r.card))),
     h('div', { class: 'button-row' },
@@ -69,7 +76,7 @@ export async function childDetail(ctx) {
       h('a', { class: 'btn btn-secondary', href: `#/child/${child.id}/edit` }, 'Edit details'),
     ),
   );
-  return { title: child.name, back: '/', node, tab: 'home', refreshEvery: 30000, cleanup: dose.cleanup };
+  return { title: child.name, back: only ? false : '/', node, tab: 'home', refreshEvery: 30000, cleanup: dose.cleanup, kid: child.colour };
 }
 
 /**

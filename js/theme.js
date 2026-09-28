@@ -33,7 +33,7 @@ export async function applyTheme() {
   const set = () => {
     const t = resolveTheme(choice, now(), mq.matches);
     document.documentElement.dataset.theme = t;
-    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', t === 'dark' ? '#10151d' : '#f6f7f9');
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', t === 'dark' ? '#0f1230' : '#edf1ff');
   };
   set();
   mq.onchange = set;

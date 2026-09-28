@@ -37,6 +37,7 @@ import { sources } from './views/sources.js';
  * @property {boolean} [bare]          no nav bar (onboarding)
  * @property {() => void} [cleanup]
  * @property {number} [refreshEvery]   re-render every n ms (countdowns)
+ * @property {string} [kid]            the child's colour, when the screen is about one child
  */
 
 /** @type {[RegExp, string[], (ctx: Ctx) => Promise<Screen>][]} */
@@ -115,6 +116,12 @@ async function render(soft = false) {
     screen = errorScreen(err);
   }
   if (token !== rendering) return; // a newer navigation won
+  // The sky takes the child's colour on a screen about one child.
+  const kidId = path.startsWith('/child/') && params.id ? params.id : query.get('child');
+  const kid = screen.kid ?? (kidId ? (await db.children.get(kidId))?.colour : undefined);
+  if (token !== rendering) return;
+  if (kid) document.documentElement.dataset.kid = kid;
+  else delete document.documentElement.dataset.kid;
   current?.cleanup?.();
   current = screen;
   paint(screen);

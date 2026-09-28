@@ -201,6 +201,11 @@ describe('pickHero: which medicine drives the big button', () => {
     assert.equal(pickHero([]), null);
   });
 
+  test('a medicine in use leads over one not given in the last 24 hours', () => {
+    const hero = pickHero([e('a', { phase: 'idle' }), e('b', { phase: 'wait', targetAt: NOW + HOUR })]);
+    assert.equal(hero.ingredient, 'b');
+  });
+
   test('ready beats every other state', () => {
     const hero = pickHero([e('a', { phase: 'wait', targetAt: NOW + HOUR }), e('b', { phase: 'ready', readySince: NOW - MIN }), e('c', { phase: 'idle' })]);
     assert.equal(hero.state, 'ready');
@@ -212,8 +217,8 @@ describe('pickHero: which medicine drives the big button', () => {
     assert.equal(hero.ingredient, 'b');
   });
 
-  test('order after ready: idle, early, wait, limit, blocked, none', () => {
-    const order = ['idle', 'early', 'wait', 'limit', 'blocked', 'none'];
+  test('order after ready: early, wait, limit, blocked, then idle (not in use), none', () => {
+    const order = ['early', 'wait', 'limit', 'blocked', 'idle', 'none'];
     for (let i = 0; i < order.length - 1; i += 1) {
       const hero = pickHero([e('z', { phase: order[i + 1] }), e('a', { phase: order[i] })]);
       assert.equal(hero.state, order[i], `${order[i]} should beat ${order[i + 1]}`);
