@@ -724,8 +724,8 @@ function weightCautions(check, child, tz) {
     }
     if (x.perDose) {
       out.push(h('div', { class: 'notice notice-warn' }, icon('warn'), h('p', null,
-        `${formatMg(x.perDose.mg)} of ${ing} is ${Math.round(x.perDose.perKg * 10) / 10} mg per kg for ${child.name}’s weight (${w.kg} kg, ${when}). `,
-        `The usual dose is ${x.perDose.maxPerKg} mg per kg (${formatMg(x.perDose.maxMg)}). Label doses go by age, so this can happen. Check the label, or ask your pharmacist.`)));
+        `The recommended dose of ${ing} for ${child.name}’s weight (${w.kg} kg, weighed ${when}) is up to ${formatMg(x.perDose.maxMg)}. `,
+        `This is ${formatMg(x.perDose.mg)}. Check the amount, or ask your pharmacist.`)));
     }
   }
   return out.length ? h('div', { class: 'stack-sm' }, out) : null;
