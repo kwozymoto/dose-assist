@@ -8,7 +8,6 @@ import * as db from '../db.js';
 import { state, childRows, ageText, CHILD_COLOURS } from '../state.js';
 import { now, timeZone } from '../clock.js';
 import { formatWhen, formatTime, formatDate, formatAmount, formatMg, toLocalInput } from '../format.js';
-import { statusRow } from './home.js';
 import { doseNow } from './dosenow.js';
 import { refreshReminders } from '../reminders.js';
 import { DAY_MS } from '../engine/time.js';
@@ -61,8 +60,6 @@ export async function childDetail(ctx, opts = {}) {
     child.notes ? h('p', { class: 'notice' }, child.notes) : null,
     dose.node,
     ...(opts.after ?? []),
-    rows.length ? h('h2', null, 'Each medicine') : null,
-    h('ul', { class: 'rows' }, rows.map((r) => statusRow(r.card))),
     h('div', { class: 'button-row' },
       h('a', { class: 'btn btn-secondary', href: `#/child/${child.id}/symptom` }, icon('thermo'), 'Temperature or symptom'),
       h('a', { class: 'btn btn-secondary', href: `#/child/${child.id}/summary` }, icon('share'), 'Share a summary'),

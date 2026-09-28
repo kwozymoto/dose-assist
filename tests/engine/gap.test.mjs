@@ -10,7 +10,7 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import fc from 'fast-check';
 import { checkIngredient } from '../../js/engine/checkDose.js';
-import { gapChoices, clampGap, planGap, pickHero, GAP_STEP_MINUTES } from '../../js/engine/gap.js';
+import { gapChoices, clampGap, planGap, GAP_STEP_MINUTES } from '../../js/engine/gap.js';
 import { RULES, NOW, MIN, HOUR, DAY, CHILD, TZ, dose } from './fixtures.mjs';
 
 const ALPHA = { ...RULES.ingredients.alpha, usualIntervalMaxMinutes: 360 };
@@ -194,52 +194,6 @@ describe('planGap: phases', () => {
   });
 });
 
-describe('pickHero: which medicine drives the big button', () => {
-  const e = (ingredient, over) => ({ ingredient, plan: { phase: 'idle', ruleAt: null, targetAt: null, readySince: null, gapMinutes: 240, ...over } });
-
-  test('nothing to show gives null', () => {
-    assert.equal(pickHero([]), null);
-  });
-
-  test('a medicine in use leads over one not given in the last 24 hours', () => {
-    const hero = pickHero([e('a', { phase: 'idle' }), e('b', { phase: 'wait', targetAt: NOW + HOUR })]);
-    assert.equal(hero.ingredient, 'b');
-  });
-
-  test('ready beats every other state', () => {
-    const hero = pickHero([e('a', { phase: 'wait', targetAt: NOW + HOUR }), e('b', { phase: 'ready', readySince: NOW - MIN }), e('c', { phase: 'idle' })]);
-    assert.equal(hero.state, 'ready');
-    assert.equal(hero.ingredient, 'b');
-  });
-
-  test('of two ready, the one allowed for longest', () => {
-    const hero = pickHero([e('a', { phase: 'ready', readySince: NOW - MIN }), e('b', { phase: 'ready', readySince: NOW - 3 * HOUR })]);
-    assert.equal(hero.ingredient, 'b');
-  });
-
-  test('order after ready: early, wait, limit, blocked, then idle (not in use), none', () => {
-    const order = ['early', 'wait', 'limit', 'blocked', 'idle', 'none'];
-    for (let i = 0; i < order.length - 1; i += 1) {
-      const hero = pickHero([e('z', { phase: order[i + 1] }), e('a', { phase: order[i] })]);
-      assert.equal(hero.state, order[i], `${order[i]} should beat ${order[i + 1]}`);
-    }
-  });
-
-  test('of two waiting, the one that ends soonest', () => {
-    const hero = pickHero([e('a', { phase: 'wait', targetAt: NOW + 3 * HOUR }), e('b', { phase: 'wait', targetAt: NOW + HOUR })]);
-    assert.equal(hero.ingredient, 'b');
-  });
-
-  test('a limit with no end time sorts after one with an end time', () => {
-    const hero = pickHero([e('a', { phase: 'limit', targetAt: null }), e('b', { phase: 'limit', targetAt: NOW + HOUR })]);
-    assert.equal(hero.ingredient, 'b');
-  });
-
-  test('ties fall back to the ingredient name, so the answer is stable', () => {
-    assert.equal(pickHero([e('b', { phase: 'idle' }), e('a', { phase: 'idle' })]).ingredient, 'a');
-  });
-});
-
 describe('the rules file refuses a range that could shorten the minimum', () => {
   test('a top below the minimum, or not a number, stops the app loading the rule', async () => {
     const { assertRule } = await import('../../js/engine/checkDose.js');
@@ -277,8 +231,31 @@ describe('planGap: unusual answers from the engine are handled, not trusted', ()
     assert.equal(p.readySince, NOW - 6 * HOUR + 240 * MIN);
   });
 
-  test('a ready hero with no start time sorts last among ready', () => {
-    const e = (ingredient, readySince) => ({ ingredient, plan: { phase: 'ready', ruleAt: null, targetAt: null, readySince, gapMinutes: 240 } });
-    assert.equal(pickHero([e('a', null), e('b', NOW - HOUR)]).ingredient, 'b');
+});
+
+describe('orderForButtons: one button per medicine, allowed ones first', () => {
+  const e = (ingredient, over) => ({ ingredient, plan: { phase: 'idle', ruleAt: null, targetAt: null, readySince: null, gapMinutes: 240, ...over } });
+
+  test('allowed (ready, never given lately, early) come before waiting, limit, blocked, no rules', async () => {
+    const { orderForButtons } = await import('../../js/engine/gap.js');
+    const out = orderForButtons([
+      e('none1', { phase: 'none' }), e('blk', { phase: 'blocked' }), e('lim', { phase: 'limit', targetAt: NOW + HOUR }),
+      e('wait', { phase: 'wait', targetAt: NOW + HOUR }), e('early', { phase: 'early', targetAt: NOW + MIN }),
+      e('idle', { phase: 'idle' }), e('ready', { phase: 'ready', readySince: NOW - MIN }),
+    ]).map((x) => x.ingredient);
+    assert.deepEqual(out, ['ready', 'idle', 'early', 'wait', 'lim', 'blk', 'none1']);
+  });
+
+  test('within waiting, the one that ends soonest first; ties by name', async () => {
+    const { orderForButtons } = await import('../../js/engine/gap.js');
+    const out = orderForButtons([e('b', { phase: 'wait', targetAt: NOW + 2 * HOUR }), e('c', { phase: 'wait', targetAt: NOW + HOUR }), e('a', { phase: 'wait', targetAt: NOW + HOUR })]).map((x) => x.ingredient);
+    assert.deepEqual(out, ['a', 'c', 'b']);
+  });
+
+  test('does not change the input', async () => {
+    const { orderForButtons } = await import('../../js/engine/gap.js');
+    const input = [e('b', { phase: 'wait', targetAt: NOW + HOUR }), e('a', { phase: 'ready', readySince: NOW })];
+    orderForButtons(input);
+    assert.deepEqual(input.map((x) => x.ingredient), ['b', 'a']);
   });
 });

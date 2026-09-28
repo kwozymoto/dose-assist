@@ -404,17 +404,6 @@ textarea.input { min-height: 96px; }
 .dose-idle { background: var(--none-bg); border-color: var(--none); }
 .dose-idle .dose-face { color: var(--none); }
 
-.chips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
-.dose-chip {
-  display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 6px 14px;
-  border: 2px solid; border-radius: 999px; font-weight: 700; font-size: 1rem;
-}
-.dose-chip .icon { width: 22px; height: 22px; flex: none; }
-.dose-chip.dose-ready { color: var(--ok); }
-.dose-chip.dose-wait { color: var(--soon); }
-.dose-chip.dose-limit { color: var(--stop); }
-.dose-chip.dose-idle { color: var(--none); }
-.dose-chip b { font-variant-numeric: tabular-nums; }
 
 .below { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr)); gap: 10px; }
 .below .btn { min-height: 60px; font-size: 1rem; padding-inline: 10px; }
@@ -461,7 +450,7 @@ textarea.input { min-height: 96px; }
 
 body { font-family: var(--font-body); padding-bottom: calc(104px + env(safe-area-inset-bottom)); }
 h1, h2, h3, .btn, .kid-name, .stop-big, .confirm-amount, .strength, .tl-time, .tabs a, .label, .unit, .mg-line,
-.dose-title, .dose-count, .dose-label, .dose-chip, .gap-chip, .gap-now { font-family: var(--font-head); }
+.dose-title, .dose-count, .dose-label, .gap-chip, .gap-now { font-family: var(--font-head); }
 h1, h2, .kid-name, .stop-big, .confirm-amount, .strength, .dose-title, .dose-count { font-weight: 700; }
 
 /* The sky. Day: soft clouds. Night: stars and a moon glow. */
@@ -582,7 +571,6 @@ body::before {
 .dose-hero { border-radius: calc(var(--r-card) + 6px); }
 .dose-face { background: color-mix(in srgb, var(--surface) 80%, transparent); }
 .gap-chip { border-radius: var(--r-row); }
-.dose-chip { background: color-mix(in srgb, var(--surface) 70%, transparent); }
 
 /* ---------- fixes from testing ---------- */
 body.no-tabs { padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
@@ -606,3 +594,23 @@ html, body { overflow-x: clip; }
 .toast { min-width: min(280px, calc(100vw - 32px)); padding: 12px 20px; text-align: center; overflow-wrap: anywhere; }
 .facts-wide { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); }
 .kid-name, .confirm-who strong { overflow-wrap: anywhere; min-width: 0; }
+
+/* ---------- one button per medicine ---------- */
+.dose-buttons { display: grid; gap: 12px; }
+.dose-med { min-height: 0; padding: 16px 18px 22px; gap: 4px; }
+.dose-top { display: flex; align-items: center; justify-content: center; gap: 10px; }
+.dose-med .dose-face { width: 48px; height: 48px; }
+.dose-med .dose-face .icon { width: 30px; height: 30px; }
+.dose-name { font-family: var(--font-head); font-size: 1.3rem; font-weight: 700; }
+.dose-med .dose-title { font-size: 1.7rem; }
+.dose-med .dose-count { font-size: 2.4rem; }
+.dose-solo { padding: 22px 18px 28px; }
+.dose-solo .dose-face { width: 64px; height: 64px; }
+.dose-solo .dose-title { font-size: 2.1rem; }
+.dose-solo .dose-count { font-size: 3rem; }
+.dose-go {
+  display: inline-flex; align-items: center; gap: 4px; margin-top: 8px; min-height: 44px; padding: 8px 18px;
+  border-radius: var(--r-btn); background: color-mix(in srgb, var(--surface) 82%, transparent);
+  font-family: var(--font-head); font-weight: 700; font-size: 1.05rem;
+}
+.dose-go .icon { width: 20px; height: 20px; }

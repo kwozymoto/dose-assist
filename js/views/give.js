@@ -84,7 +84,7 @@ async function giveStep(ctx) {
   if (!child) { ctx.go('/give', { replace: true }); return { title: 'Give a dose', node: h('div') }; }
 
   const bottleId = q.get('bottle');
-  if (!bottleId) return pickBottle(child, q.get('ingredients'), q.get('when') === 'earlier');
+  if (!bottleId) return pickBottle(ctx, child, q.get('ingredients'), q.get('when') === 'earlier');
   const bottle = await db.bottles.get(bottleId);
   if (!bottle) { ctx.go(`/give?child=${child.id}`, { replace: true }); return { title: 'Give a dose', node: h('div') }; }
 
@@ -123,11 +123,16 @@ function pickChild(kids) {
 
 /* ---------------- step 2: bottle ---------------- */
 
-/** @param {Child} child @param {string | null} ingredientsParam @returns {Promise<Screen>} */
-async function pickBottle(child, ingredientsParam, earlier = false) {
+/** @param {Ctx} ctx @param {Child} child @param {string | null} ingredientsParam @returns {Promise<Screen>} */
+async function pickBottle(ctx, child, ingredientsParam, earlier = false) {
   const all = await db.bottles.list();
   const want = ingredientsParam ? ingredientsParam.split(',') : null;
   const list = want ? all.filter((b) => ingredientsOf(b).some((i) => want.includes(i))) : all;
+  // A medicine's own button with only one bottle of it: no need to ask which.
+  if (want && list.length === 1) {
+    ctx.go(`/give?child=${child.id}&bottle=${list[0].id}${earlier ? '&when=earlier' : ''}`, { replace: true });
+    return { title: `Medicine for ${child.name}`, node: h('div') };
+  }
   const history = await db.doses.forChild(child.id);
   const t = now();
   const tz = timeZone();

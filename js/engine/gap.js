@@ -102,22 +102,21 @@ function plan(phase, gapMinutes) {
   return { phase, ruleAt: null, targetAt: null, readySince: null, gapMinutes };
 }
 
-/** Which state leads the big button, best first. A medicine in use (given in
-    the last 24 hours) leads; one not in use (idle) only leads when nothing is. */
-const HERO_RANK = /** @type {Record<Phase, number>} */ ({ ready: 0, early: 1, wait: 2, limit: 3, blocked: 4, idle: 5, none: 6 });
+/** Button order: everything a dose is allowed for first (ready, not given
+    lately, allowed-but-before-your-gap), then waiting, limit, blocked. */
+const BUTTON_RANK = /** @type {Record<Phase, number>} */ ({ ready: 0, idle: 1, early: 2, wait: 3, limit: 4, blocked: 5, none: 6 });
 
 /**
- * Pick the medicine that drives the big Dose now button.
- * @param {{ingredient: string, plan: GapPlan}[]} entries
- * @returns {{state: Phase, ingredient: string, plan: GapPlan} | null}
+ * One button per medicine: which order to show them in. Soonest end first
+ * within a state (longest allowed first for ready), then by name.
+ * @template {{ingredient: string, plan: GapPlan}} T
+ * @param {T[]} entries
+ * @returns {T[]}
  */
-export function pickHero(entries) {
-  if (entries.length === 0) return null;
-  /** ready: allowed longest first; others: soonest end first; no end time last. */
-  const time = (/** @type {{plan: GapPlan}} */ e) => (e.plan.phase === 'ready' ? (e.plan.readySince ?? Infinity) : (e.plan.targetAt ?? Infinity));
-  const best = [...entries].sort((a, b) =>
-    HERO_RANK[a.plan.phase] - HERO_RANK[b.plan.phase]
+export function orderForButtons(entries) {
+  const time = (/** @type {T} */ e) => (e.plan.phase === 'ready' ? (e.plan.readySince ?? Infinity) : (e.plan.targetAt ?? Infinity));
+  return [...entries].sort((a, b) =>
+    BUTTON_RANK[a.plan.phase] - BUTTON_RANK[b.plan.phase]
     || time(a) - time(b)
-    || (a.ingredient < b.ingredient ? -1 : a.ingredient > b.ingredient ? 1 : 0))[0];
-  return { state: best.plan.phase, ingredient: best.ingredient, plan: best.plan };
+    || (a.ingredient < b.ingredient ? -1 : a.ingredient > b.ingredient ? 1 : 0));
 }
