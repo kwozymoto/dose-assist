@@ -4,6 +4,7 @@
 
 - The name is written **WhenDose** (was Whendose). App id unchanged (`nz.whendose.app`).
 - **Auto theme** now goes by the clock only: dark from 7pm to 7am, light by day. Before, by day it followed the phone, so a phone set to dark stayed dark all day. "Same as my phone" still follows the phone. The theme is re-checked whenever the app comes back to the front.
+- **Sideways scrolling fixed.** A rule that kept phone-number links on one line also stopped the long sentences inside the Help and onboarding call buttons from wrapping, so those pages became 674 px wide on a 360 px phone and the fixed tab bar sat below the screen. Now only the numbers themselves never break (non-breaking spaces in `js/constants.js`); long unbroken words wrap in buttons, choices, the timeline and the summary; and the page can never be wider than the phone (`overflow-x: clip`).
 - **Undo** asks first ("Delete this dose?", with the amount, child and time). It is now a small line under Dose now ("Just logged: 5 mL of Paracetamol liquid for Ari, 11:52am. Undo") instead of a box at the top of Home.
 - The **"Test version" notice** is off (`SHOW_TEST_NOTICE` in `js/config.js`) while only the owner's family uses the app. Turn it back on before sharing; the Sources screen still shows the review status.
 

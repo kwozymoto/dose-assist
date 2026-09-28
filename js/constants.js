@@ -13,14 +13,15 @@ export const EMERGENCY = /** @type {const} */ ({
   },
   healthline: {
     name: 'Healthline',
-    display: '0800 611 116',
+    // Non-breaking spaces ( ): a number never splits across lines, but the text around it can wrap.
+    display: '0800 611 116',
     tel: '0800611116',
     when: 'Free advice from nurses and paramedics, 24 hours a day, 7 days a week.',
     source: 'healthnz-healthline',
   },
   poisons: {
     name: 'National Poisons Centre',
-    display: '0800 764 766',
+    display: '0800 764 766',
     alt: '0800 POISON',
     tel: '0800764766',
     when: 'If your child may have had too much medicine, call now, even if they seem well.',

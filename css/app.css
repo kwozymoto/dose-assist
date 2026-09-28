@@ -587,7 +587,12 @@ body::before {
 body.no-tabs { padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
 .tabs { max-width: 616px; margin: 0 auto; }
 .iconbtn { width: 56px; height: 56px; margin: 0; }
-a[href^="tel:"] { white-space: nowrap; }
+/* Never let the page grow wider than the phone: on Android that widens the
+   layout viewport and pushes the fixed tab bar off the bottom of the screen. */
+html, body { overflow-x: clip; }
+.btn, .choice-main, .tl-main, .kid-name, .confirm-who strong, p, li, dd, .dose-line, .dose-line2 { overflow-wrap: anywhere; }
+.btn, .call-text { min-width: 0; }
+.summary { overflow-wrap: anywhere; }
 .lifeline a { display: inline-block; padding: 10px 4px; }
 .cite a, .bullets a, .sources-list a { display: inline-block; padding-block: 8px; }
 .swatches { grid-template-columns: repeat(auto-fill, minmax(min(100%, 136px), 1fr)); }
