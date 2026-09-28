@@ -11,8 +11,14 @@ export const VAPID_PUBLIC_KEY = '';
 
 /* Undo stays available this long after logging (PLAN.md 8.1). */
 export const UNDO_MS = 2 * 60 * 1000;
-/* "I gave it earlier" reaches back this far (PLAN.md 7.1 item 9). */
-export const BACKDATE_MAX_MS = 12 * 60 * 60 * 1000;
+/* "I gave it earlier" reaches back this far, the same as the rolling limit
+   window, so any dose that still counts can be recorded (PLAN.md 7.1 item 9,
+   widened from 12 hours on the owner's decision, 2026-09-29). A dose's time
+   can also only be edited within this long before it was logged. */
+export const BACKDATE_MAX_MS = 24 * 60 * 60 * 1000;
+/* A weight older than this still gives cautions, but never stops a dose:
+   children grow, and a stale weight must not block what the label allows. */
+export const WEIGHT_FRESH_MS = 183 * 24 * 60 * 60 * 1000;
 /* A reminder whose moment passed while the app was closed, by more than
    this, is marked done without an alert (see schedule.js triage). */
 export const STALE_GRACE_MS = 10 * 60 * 1000;

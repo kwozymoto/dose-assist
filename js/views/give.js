@@ -6,7 +6,11 @@
      not from a link: a URL can only ever open a step, never write.
    - The check runs again at the moment of logging, so a dose logged by
      someone else in the meantime is never missed.
-   - "Too soon" can be overridden only by saying a doctor advised it.
+   - A stop screen cannot be overridden. The only way past one is to record
+     a dose that has already been given (below).
+   - The amount is compared with the child's recorded weight (engine/weight.js):
+     over the usual mg per kg is a caution; over the 24-hour mg per kg is a
+     stop, when that number is verified and the weight is recent.
    - Any stop screen can record a dose that HAS ALREADY BEEN GIVEN. The
      record must match reality: a dose the app refused to record would make
      every later check wrong. Recording it is not approving it, and the
@@ -19,10 +23,11 @@ import { state, ingredientsOf, ruleFor, engineChild, bottleStatus } from '../sta
 import { checkDose } from '../engine/checkDose.js';
 import { componentsForAmount } from '../engine/amounts.js';
 import { now, timeZone } from '../clock.js';
-import { formatWhen, formatAgo, formatDuration, formatMg, formatAmount, formatStrength, formatTime, toLocalInput, fromLocalInput, formatAgeDays, formatInterval, parseAmount } from '../format.js';
+import { formatWhen, formatDate, formatAgo, formatDuration, formatMg, formatAmount, formatStrength, formatTime, toLocalInput, fromLocalInput, formatAgeDays, formatInterval, parseAmount } from '../format.js';
 import { cardStatus, cap } from '../status.js';
 import { statusRow } from './home.js';
-import { BACKDATE_MAX_MS, SCHEDULE_PRESET_HOURS, UNDO_MS } from '../config.js';
+import { BACKDATE_MAX_MS, SCHEDULE_PRESET_HOURS, UNDO_MS, WEIGHT_FRESH_MS } from '../config.js';
+import { checkWeight } from '../engine/weight.js';
 import { GUIDANCE } from '../content/guidance.js';
 import { EMERGENCY } from '../constants.js';
 import { refreshReminders } from '../reminders.js';
@@ -36,6 +41,12 @@ import { clampGap } from '../engine/gap.js';
 /** @typedef {import('../db.js').Bottle} Bottle */
 /** @typedef {import('../db.js').DoseRecord} DoseRecord */
 /** @typedef {import('../engine/types.js').ProductCheck} ProductCheck */
+/** @typedef {import('../engine/weight.js').WeightCheck} WeightCheck */
+/**
+ * The engine's answer plus the weight check. WEIGHT_LIMIT: the rules allow
+ * it, but the 24-hour total would be over the mg per kg for this child.
+ * @typedef {Omit<ProductCheck, 'status'> & {status: ProductCheck['status'] | 'WEIGHT_LIMIT', weight: {kg: number, weighedAt: number, by: [string, WeightCheck][]} | null}} ViewCheck
+ */
 
 /**
  * The dose being prepared. Lives only in memory: a reload starts again at
@@ -45,7 +56,7 @@ import { clampGap } from '../engine/gap.js';
  * @property {string} bottleId
  * @property {number} amount
  * @property {number | null} givenAt   null = "just now", fixed at the moment of logging
- * @property {'DOCTOR_ADVISED' | 'ALREADY_GIVEN' | null} override
+ * @property {'ALREADY_GIVEN' | null} override
  * @property {string} [statusSeen]    the status the parent was shown and accepted
  * @property {string} [situation]     fingerprint of the situation the override was given for
  */
@@ -206,7 +217,7 @@ async function amountStep(ctx, child, bottle, base) {
   const at = /** @type {HTMLInputElement} */ (h('input', {
     class: 'input', type: 'datetime-local', id: 'given-at',
     min: toLocalInput(earliest, tz), max: toLocalInput(t, tz),
-    value: toLocalInput(keep?.givenAt ?? t, tz),
+    value: keep?.givenAt ? toLocalInput(keep.givenAt, tz) : '',
   }));
   const atWrap = h('div', { class: 'field', hidden: !whenEarlier.checked },
     h('label', { class: 'label', for: 'given-at' }, 'Time given'),
@@ -296,7 +307,22 @@ async function runCheck(child, bottle) {
   const history = await db.doses.forChild(child.id);
   const at = draft.givenAt ?? now();
   const components = componentsForAmount(bottle, draft.amount);
-  const check = checkDose({ components, rules: state.rules, history, now: at, child: engineChild(child), timeZone: timeZone() });
+  const engine = checkDose({ components, rules: state.rules, history, now: at, child: engineChild(child), timeZone: timeZone() });
+  const w = await db.weights.latest(child.id);
+  /** @type {ViewCheck} */
+  let check = { ...engine, weight: null };
+  if (w) {
+    /** @type {[string, WeightCheck][]} */
+    const by = [];
+    for (const [ing, c] of Object.entries(engine.perIngredient)) {
+      const rule = ruleFor(ing);
+      if (!rule) continue;
+      const doseMg = components.filter((x) => x.ingredient === ing).reduce((s, x) => s + x.mg, 0);
+      by.push([ing, checkWeight({ rule, weightKg: w.kg, weighedAt: w.recordedAt, doseMg, windowMg: c.mgInLast24h, at, freshMs: WEIGHT_FRESH_MS })]);
+    }
+    check = { ...engine, weight: { kg: w.kg, weighedAt: w.recordedAt, by } };
+    if (engine.status === 'OK' && by.some(([, x]) => x.stop)) check.status = 'WEIGHT_LIMIT';
+  }
   return { check, components, history, at };
 }
 
@@ -320,7 +346,8 @@ async function checkStep(ctx, child, bottle, base) {
   const t = now();
   const backdated = d.givenAt !== null;
   const names = listNames(ingredientsOf(bottle));
-  const worst = Object.entries(check.perIngredient).find(([, c]) => c.status === check.status) ?? Object.entries(check.perIngredient)[0];
+  const worst = (check.status === 'WEIGHT_LIMIT' ? Object.entries(check.perIngredient).find(([k]) => check.weight?.by.some(([i, x]) => i === k && x.stop)) : undefined)
+    ?? Object.entries(check.perIngredient).find(([, c]) => c.status === check.status) ?? Object.entries(check.perIngredient)[0];
   const [ing, ic] = worst;
   const rule = ruleFor(ing);
   const lastDose = ic.lastDose ? history.find((x) => x.id === ic.lastDose?.doseId) : undefined;
@@ -361,6 +388,19 @@ async function checkStep(ctx, child, bottle, base) {
       lines: ['Check the amount against the label.'],
     };
     if (check.nextAllowedAt) view.lines.push(`This amount would be allowed from ${formatWhen(check.nextAllowedAt, t, tz)}.`);
+  } else if (check.status === 'WEIGHT_LIMIT') {
+    const [wIng, wc] = /** @type {[string, WeightCheck]} */ (check.weight?.by.find(([, x]) => x.stop));
+    const day = /** @type {NonNullable<WeightCheck['perDay']>} */ (wc.perDay);
+    view = {
+      title: 'Too much for their weight',
+      kind: 'limit', icon: 'stop',
+      big: `With this dose, ${child.name} would have had ${formatMg(day.totalMg)} of ${wIng} in 24 hours. For ${check.weight?.kg} kg the most is ${formatMg(day.maxMg)}.`,
+      lines: [
+        `That is ${day.maxPerKg} mg per kg in 24 hours, from ${child.name}’s weight recorded ${formatDate(/** @type {number} */ (check.weight?.weighedAt), tz)}.`,
+        'Check the amount against the label.',
+        h('a', { href: `#/child/${child.id}/edit` }, `If ${child.name}’s weight has changed, update it`),
+      ],
+    };
   } else {
     const age = rule ? formatAgeDays(rule.minAgeDays) : 'the minimum age';
     view = { title: 'Please see a doctor', kind: 'blocked', icon: 'stop', big: `Under ${age}: please see a doctor.`, lines: [GUIDANCE.underMinAge.text ?? ''] };
@@ -394,16 +434,6 @@ async function checkStep(ctx, child, bottle, base) {
     d.override = 'ALREADY_GIVEN';
     ctx.go(`${base}&step=confirm`);
   };
-  const doctor = async () => {
-    const ok = await confirmDialog({
-      title: 'Did a doctor, nurse or pharmacist tell you to give it now?',
-      body: 'Only continue if a health professional told you to give this dose at this time. The app will record that.',
-      confirm: 'Yes, they told me to',
-    });
-    if (!ok) return;
-    d.override = 'DOCTOR_ADVISED';
-    ctx.go(`${base}&step=confirm`);
-  };
   const remind = async () => {
     await addReminder({ childId: child.id, kind: 'next_allowed', ingredients: ingredientsOf(bottle), bottleId: bottle.id });
     draft = null;
@@ -424,15 +454,14 @@ async function checkStep(ctx, child, bottle, base) {
         h('a', { class: 'btn btn-secondary', href: '#' + base }, 'Change the time or amount'),
       )
       : h('div', { class: 'actions' },
-        check.status === 'EXCEEDS_LIMIT'
+        check.status === 'EXCEEDS_LIMIT' || check.status === 'WEIGHT_LIMIT'
           ? h('a', { class: 'btn btn-primary btn-big', href: '#' + base }, 'Change the amount')
           : check.status === 'BLOCKED'
             ? h('a', { class: 'btn btn-primary btn-big', href: `tel:${EMERGENCY.healthline.tel}` }, icon('phone'), `Call Healthline ${EMERGENCY.healthline.display}`)
             : h('a', { class: 'btn btn-primary btn-big', href: '#/' }, 'Don’t give it now'),
         check.status === 'BLOCKED' ? h('a', { class: 'btn btn-secondary', href: '#/' }, 'Back home') : null,
         canRemind && check.nextAllowedAt ? h('button', { class: 'btn btn-secondary', onclick: remind }, icon('bell'), `Remind me at ${formatTime(check.nextAllowedAt, tz)}`) : null,
-        check.status === 'BLOCKED' ? null : h('p', { class: 'small muted' }, check.status === 'TOO_SOON' ? 'Only if one of these is true:' : 'Only if this is true:'),
-        check.status === 'TOO_SOON' ? h('button', { class: 'btn btn-quiet', onclick: doctor }, 'A doctor told me to give it now') : null,
+        check.status === 'BLOCKED' ? null : h('p', { class: 'small muted' }, 'If it was given by mistake, it still needs to go on the record:'),
         h('button', { class: 'btn btn-quiet', onclick: alreadyGiven }, 'It has already been given: record it'),
       ),
     check.status === 'BLOCKED' ? null : h('a', { class: 'btn btn-quiet', href: `tel:${EMERGENCY.healthline.tel}` }, icon('phone'), `Unsure? Call Healthline ${EMERGENCY.healthline.display}`),
@@ -444,25 +473,25 @@ async function checkStep(ctx, child, bottle, base) {
  * What the override was given for: the status, when the next dose would be
  * allowed, and the last dose of each ingredient. Any change, and the parent
  * is asked again.
- * @param {ProductCheck} check
+ * @param {ViewCheck} check
  */
 function situation(check) {
   return JSON.stringify([
     check.status,
+    check.weight ? [check.weight.kg, check.weight.by.filter(([, x]) => x.stop).map(([i]) => i)] : null,
     check.nextAllowedAt,
     Object.entries(check.perIngredient).map(([k, c]) => [k, c.lastDose?.doseId ?? null, c.dosesInLast24h]),
   ]);
 }
 
 /**
- * May this check be logged? OK always; otherwise only with an override given
- * for exactly this situation, and a doctor's advice only ever covers "too soon".
- * @param {Draft} d @param {ProductCheck} check
+ * May this check be logged? OK always; otherwise only as a dose that was
+ * already given, recorded for exactly this situation.
+ * @param {Draft} d @param {ViewCheck} check
  */
 function overrideCovers(d, check) {
   if (check.status === 'OK') return true;
   if (!d.override || d.situation !== situation(check)) return false;
-  if (d.override === 'DOCTOR_ADVISED') return check.status === 'TOO_SOON';
   return d.override === 'ALREADY_GIVEN';
 }
 
@@ -484,6 +513,7 @@ async function confirmStep(ctx, child, bottle, base) {
   const names = await knownCaregivers();
   const by = /** @type {HTMLInputElement} */ (h('input', { class: 'input', id: 'given-by', list: 'caregivers', value: state.caregiver, autocomplete: 'name', placeholder: 'e.g. Mum, Dad, Nana' }));
   const warnings = warningList(check, child, bottle);
+  const weightNotes = weightCautions(check, child, tz);
   const byError = h('p', { class: 'error', role: 'alert', hidden: true }, 'Enter who gave it, so everyone sharing care can see.');
   by.addEventListener('input', () => { byError.hidden = true; });
 
@@ -551,13 +581,12 @@ async function confirmStep(ctx, child, bottle, base) {
     ),
     d.override && check.status !== 'OK'
       ? h('div', { class: 'notice notice-warn' }, icon('warn'), h('div', { class: 'stack-sm' },
-        h('p', null, d.override === 'DOCTOR_ADVISED'
-          ? 'Recorded as: a doctor told you to give this dose now.'
-          : 'Recorded as: already given. This does not mean it was safe.'),
+        h('p', null, 'Recorded as: already given. This does not mean it was safe.'),
         ...Object.entries(check.perIngredient).map(([k, c]) => h('p', null,
           c.lastDose ? `Last ${k}: ${formatWhen(c.lastDose.givenAt, t, tz)} (${formatAgo(c.lastDose.givenAt, t)}). ` : '',
           `In the last 24 hours: ${c.dosesInLast24h} ${c.dosesInLast24h === 1 ? 'dose' : 'doses'}, ${formatMg(c.mgInLast24h)}.`))))
       : null,
+    weightNotes,
     warnings,
     h('div', { class: 'field' },
       h('label', { class: 'label', for: 'given-by' }, 'Given by'),
@@ -571,7 +600,7 @@ async function confirmStep(ctx, child, bottle, base) {
   return { title: 'Check and log', back: base, node };
 }
 
-/** @param {ProductCheck} check @param {Child} child @param {Bottle} bottle */
+/** @param {ViewCheck} check @param {Child} child @param {Bottle} bottle */
 function warningList(check, child, bottle) {
   const out = h('div', { class: 'stack-sm' });
   const w = check.warnings;
@@ -674,6 +703,32 @@ async function doneStep(ctx) {
     ),
   );
   return { title: 'Dose logged', back: '/', node };
+}
+
+/**
+ * What the weight check says that is not a stop: one dose over the usual mg
+ * per kg, or a 24-hour excess that cannot stop (old weight, unverified limit).
+ * @param {ViewCheck} check @param {Child} child @param {string} tz
+ */
+function weightCautions(check, child, tz) {
+  const w = check.weight;
+  if (!w) return null;
+  const out = [];
+  const when = formatDate(w.weighedAt, tz);
+  for (const [ing, x] of w.by) {
+    if (x.perDay && !x.stop) {
+      out.push(h('div', { class: 'notice notice-danger', role: 'alert' }, h('p', null,
+        `With this dose, ${child.name} would have had ${formatMg(x.perDay.totalMg)} of ${ing} in 24 hours, more than ${x.perDay.maxPerKg} mg per kg for ${w.kg} kg (${formatMg(x.perDay.maxMg)}). `,
+        x.stale ? `${child.name}’s weight was recorded ${when}; if it has changed, update it. ` : 'This limit is not yet confirmed by a source. ',
+        'Check with your pharmacist or Healthline before giving it.')));
+    }
+    if (x.perDose) {
+      out.push(h('div', { class: 'notice notice-warn' }, icon('warn'), h('p', null,
+        `${formatMg(x.perDose.mg)} of ${ing} is ${Math.round(x.perDose.perKg * 10) / 10} mg per kg for ${child.name}’s weight (${w.kg} kg, ${when}). `,
+        `The usual dose is ${x.perDose.maxPerKg} mg per kg (${formatMg(x.perDose.maxMg)}). Label doses go by age, so this can happen. Check the label, or ask your pharmacist.`)));
+    }
+  }
+  return out.length ? h('div', { class: 'stack-sm' }, out) : null;
 }
 
 /**

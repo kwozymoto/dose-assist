@@ -220,7 +220,7 @@ Warn (not block) if weight was recorded more than 3 months ago for children over
 6. **Home screen:** a card per child showing each active medicine's status.
 7. **Timeline:** per child, all doses with time, amount, who gave it. Edit/delete with confirmation and an audit trail.
 8. **Reminders:** after logging, offer "Remind me when the next dose is allowed" or "Remind me at a set time (doctor's schedule)". Preset buttons: 4 h, 6 h, 8 h, custom.
-9. **Backdating:** "I gave it earlier" time picker, limited to the last 12 hours.
+9. **Backdating:** "I gave it earlier" time picker, limited to the last 24 hours (the length of the rolling limit window; widened from 12 hours, 2026-09-29).
 10. **Help and red flags:** when to call Healthline 0800 611 116, when to call 111, Poisons Centre 0800 764 766 (0800 POISON). One tap to call from anywhere in the app.
 11. **Sources screen:** every rule and piece of advice with its source and date checked.
 

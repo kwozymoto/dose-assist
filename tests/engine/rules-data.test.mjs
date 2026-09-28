@@ -7,6 +7,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { checkIngredient } from '../../js/engine/checkDose.js';
 import { gapChoices, clampGap, planGap } from '../../js/engine/gap.js';
+import { checkWeight } from '../../js/engine/weight.js';
 import { NOW, MIN, DAY, TZ } from './fixtures.mjs';
 
 const choices = gapChoices;
@@ -76,3 +77,23 @@ for (const [name, rule] of Object.entries(RULES.ingredients)) {
     });
   });
 }
+
+describe(`weight check with the shipped rules (${RULES.rulesVersion})`, () => {
+  for (const [name, rule] of Object.entries(RULES.ingredients)) {
+    test(`${name}: over the 24-hour mg per kg stops only if that number is verified`, () => {
+      if (typeof rule.maxMgPerKgPer24h !== 'number') return;
+      const kg = 10;
+      const r = checkWeight({ rule, weightKg: kg, weighedAt: NOW, doseMg: 1, windowMg: rule.maxMgPerKgPer24h * kg, at: NOW, freshMs: DAY });
+      assert.notEqual(r.perDay, null);
+      assert.equal(r.stop, !(rule.unverified ?? []).includes('maxMgPerKgPer24h'));
+    });
+    test(`${name}: one dose at the usual mg per kg is fine, one mg over is a caution`, () => {
+      if (typeof rule.mgPerKg !== 'number') return;
+      const kg = 10;
+      const at = (mg) => checkWeight({ rule, weightKg: kg, weighedAt: NOW, doseMg: mg, windowMg: 0, at: NOW, freshMs: DAY });
+      assert.equal(at(rule.mgPerKg * kg).perDose, null);
+      assert.notEqual(at(rule.mgPerKg * kg + 1).perDose, null);
+      assert.equal(at(rule.mgPerKg * kg + 1).stop, false);
+    });
+  }
+});

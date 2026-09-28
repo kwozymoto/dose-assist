@@ -8,9 +8,11 @@ import * as db from '../db.js';
 import { state, engineChild } from '../state.js';
 import { componentsForAmount } from '../engine/amounts.js';
 import { now, timeZone } from '../clock.js';
-import { formatWhen, formatAmount, formatMg, toLocalInput, fromLocalInput, formatStrength, parseAmount } from '../format.js';
+import { formatWhen, formatAmount, formatMg, toLocalInput, fromLocalInput, formatStrength, parseAmount, formatDuration } from '../format.js';
 import { checkDose } from '../engine/checkDose.js';
 import { refreshReminders } from '../reminders.js';
+import { BACKDATE_MAX_MS } from '../config.js';
+
 import { field } from './child.js';
 
 /** @typedef {import('../app.js').Ctx} Ctx */
@@ -55,7 +57,9 @@ export async function doseEdit(ctx) {
   }
 
   const amount = /** @type {HTMLInputElement} */ (h('input', { class: 'input', id: 'e-amount', inputmode: 'decimal', value: String(dose.amount) }));
-  const at = /** @type {HTMLInputElement} */ (h('input', { class: 'input', id: 'e-at', type: 'datetime-local', max: toLocalInput(t, tz), value: toLocalInput(dose.givenAt, tz) }));
+  // A dose can be recorded up to BACKDATE_MAX_MS after it was given, so its time can move no earlier than that before it was logged.
+  const earliestAt = dose.loggedAt - BACKDATE_MAX_MS;
+  const at = /** @type {HTMLInputElement} */ (h('input', { class: 'input', id: 'e-at', type: 'datetime-local', min: toLocalInput(earliestAt, tz), max: toLocalInput(t, tz), value: toLocalInput(dose.givenAt, tz) }));
   const by = /** @type {HTMLInputElement} */ (h('input', { class: 'input', id: 'e-by', value: dose.givenBy }));
   const note = /** @type {HTMLInputElement} */ (h('input', { class: 'input', id: 'e-note', value: dose.note ?? '' }));
   const error = h('p', { class: 'error', role: 'alert', hidden: true });
@@ -70,6 +74,7 @@ export async function doseEdit(ctx) {
     const givenAt = timeChanged ? fromLocalInput(at.value, tz) : dose.givenAt;
     if (amt === null) { error.textContent = 'Enter the amount, for example 5 or 2.5.'; error.hidden = false; return; }
     if (givenAt === null || givenAt > now()) { error.textContent = 'Enter a time that is not in the future.'; error.hidden = false; return; }
+    if (timeChanged && givenAt < earliestAt) { error.textContent = `This dose was logged ${formatWhen(dose.loggedAt, t, tz)}. Its time can be up to ${formatDuration(BACKDATE_MAX_MS)} before that, so no earlier than ${formatWhen(earliestAt, t, tz)}.`; error.hidden = false; return; }
     /** @type {Record<string, any>} */
     const changes = {};
     if (amt !== dose.amount) {

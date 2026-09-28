@@ -1,5 +1,12 @@
 # Changelog
 
+## Weight check; no doctor override; 24-hour backdating (unreleased)
+
+Owner's decisions, 2026-09-29:
+- **Weight check** (`js/engine/weight.js`, tests first). With a weight on record, a dose over the rule's `mgPerKg` shows a caution on the confirm screen (label doses go by age, so it can happen). A 24-hour total over `maxMgPerKgPer24h` is a new stop screen, "Too much for their weight", when that value is source-verified and the weight is under 6 months old; otherwise a strong caution. Paracetamol can stop (60 mg/kg, bpacnz); ibuprofen only cautions (30 mg/kg is unverified). The app still never suggests an amount.
+- **No "a doctor told me" override.** No stop screen can be passed. The one way on is still to record a dose that was already given (it now asks when), which then offers the Poisons Centre.
+- **Backdating to 24 hours** (was 12), the length of the limit window. The time field starts empty, so "now" is never logged by accident. A dose's time can be edited to no earlier than 24 hours before it was logged.
+
 ## Fixes from two test runs (unreleased)
 
 Two testers used every screen at phone and tablet sizes, in both themes. Fixed:

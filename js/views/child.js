@@ -207,7 +207,7 @@ export async function childForm(ctx) {
     field('Name', 'c-name', name),
     field('Date of birth', 'c-dob', dob),
     h('fieldset', { class: 'field' }, h('legend', { class: 'label' }, 'Colour'), swatches),
-    field(weight ? `Weight today (kg), last recorded ${formatDate(weight.recordedAt, tz)}` : 'Weight (kg)', 'c-kg', kg, 'Kept with each dose for your records. The app does not use it to work out doses.'),
+    field(weight ? `Weight today (kg), last recorded ${formatDate(weight.recordedAt, tz)}` : 'Weight (kg)', 'c-kg', kg, 'The app never works out a dose from it. It uses it to warn you if an amount looks like a lot for your child’s weight.'),
     field('Notes', 'c-notes', notes),
     error,
     h('button', { class: 'btn btn-primary btn-big', type: 'submit' }, editing ? 'Save' : 'Add child'),
