@@ -581,3 +581,16 @@ body::before {
 .dose-face { background: color-mix(in srgb, var(--surface) 80%, transparent); }
 .gap-chip { border-radius: var(--r-row); }
 .dose-chip { background: color-mix(in srgb, var(--surface) 70%, transparent); }
+
+/* ---------- fixes from testing ---------- */
+body.no-tabs { padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
+.tabs { max-width: 616px; margin: 0 auto; }
+.iconbtn { width: 56px; height: 56px; margin: 0; }
+a[href^="tel:"] { white-space: nowrap; }
+.lifeline a { display: inline-block; padding: 10px 4px; }
+.cite a, .bullets a, .sources-list a { display: inline-block; padding-block: 8px; }
+.swatches { grid-template-columns: repeat(auto-fill, minmax(min(100%, 136px), 1fr)); }
+.swatch span:last-child { min-width: 0; overflow-wrap: anywhere; }
+.toast { min-width: min(280px, calc(100vw - 32px)); padding: 12px 20px; text-align: center; overflow-wrap: anywhere; }
+.facts-wide { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); }
+.kid-name, .confirm-who strong { overflow-wrap: anywhere; min-width: 0; }

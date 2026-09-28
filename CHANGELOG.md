@@ -1,5 +1,19 @@
 # Changelog
 
+## Fixes from two test runs (unreleased)
+
+Two testers used every screen at phone and tablet sizes, in both themes. Fixed:
+- **Symptoms:** ticking a box that matches the app's own sourced red-flag advice (breathing, very sleepy, rash; or drinking less, fewer wet nappies, vomiting, diarrhoea, pain) now shows that advice with Call 111 / Call Healthline, instead of only "Saved".
+- **Dialogs** close when you leave their screen (Back included), so a "Delete this dose?" can never act on another screen; Cancel has the focus, so Enter never confirms a risky choice.
+- **Editing a dose** says when the change would lift a stop ("ibuprofen will be allowed now") or add one; the edit screen names the child.
+- **Already given, recorded from a stop screen** now asks when it was given and checks at that time, instead of recording "now".
+- **A doctor's override** shows the last dose and the last-24-hour total on the confirm screen. "Given by" must be filled in; the app no longer saves "Someone" as your name.
+- **Dose now** says "Not yet", "Not now" (limit) or "See a doctor" (too young) when a dose is not allowed; "Dose now" only when it is. The count-up reads "Allowed since 2:52pm". "Can be given now" is now "is allowed now" everywhere. The Too soon screen reads "Not yet. Next paracetamol from 2:52pm". A combination medicine says which ingredient holds it back.
+- **Under 3 months:** the stop screen's main button calls Healthline.
+- **The logged screen's reminder** shows when it will really come (the parent's gap). Setting a reminder with notifications off says so.
+- **Layout:** no tab bar in the give flow, so its main button is never covered; on Home with several children the cards come before the standing notices; colour chips no longer overflow; 56 px header buttons; phone numbers never wrap; larger emergency links; wider toasts; a readable Sources table; the tab bar no wider than the page on a tablet; a huge typed amount no longer draws thousands of syringe ticks.
+- **Onboarding** lets you add another child and another medicine. Stale form errors clear as you type; custom-medicine fields have proper labels.
+
 ## Renamed to Whendose; Android app (unreleased)
 
 **Name.** The app is now **Whendose** everywhere a person sees it (title, home screen name, notifications, summaries, backup file names). Android app id `nz.whendose.app`. Internal names keep `dose-assist` (the browser database, the backup format, the offline cache), so records and backups made before the rename still open.

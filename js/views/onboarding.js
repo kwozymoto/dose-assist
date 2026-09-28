@@ -41,8 +41,7 @@ export async function onboarding(ctx) {
         e.preventDefault();
         state.caregiver = name.value.trim();
         await db.meta.set('caregiverName', state.caregiver);
-        const kids = await db.children.list();
-        next(kids.length ? 'bottle' : 'child');
+        next('child');
       } },
       field('Your name', 'o-name', name, 'Each dose shows who gave it, so everyone sharing care can see.'),
       h('button', { class: 'btn btn-primary btn-big', type: 'submit' }, 'Next'),
@@ -51,13 +50,24 @@ export async function onboarding(ctx) {
   }
 
   if (step === 'child') {
-    ctx.go('/child/new?onboarding=1', { replace: true });
-    return screen('Add a child');
+    const kids = await db.children.list();
+    if (!kids.length) { ctx.go('/child/new?onboarding=1', { replace: true }); return screen('Add a child'); }
+    return screen('Your children', progress,
+      h('ul', { class: 'bullets' }, kids.map((k) => h('li', null, k.name))),
+      h('button', { class: 'btn btn-primary btn-big', onclick: () => next('bottle') }, 'Next'),
+      h('a', { class: 'btn btn-secondary', href: '#/child/new?onboarding=1' }, icon('plus'), 'Add another child'),
+    );
   }
 
   if (step === 'bottle') {
     const bottles = await db.bottles.list();
-    if (bottles.length) { next('notify'); return screen(''); }
+    if (bottles.length) {
+      return screen('Your medicines', progress,
+        h('ul', { class: 'bullets' }, bottles.map((b) => h('li', null, b.name))),
+        h('button', { class: 'btn btn-primary btn-big', onclick: () => next('notify') }, 'Next'),
+        h('a', { class: 'btn btn-secondary', href: '#/bottles/new?onboarding=1' }, icon('plus'), 'Add another medicine'),
+      );
+    }
     return screen('Your medicines', progress,
       h('p', null, 'Add the children’s medicines you have at home. You only do this once per bottle.'),
       h('a', { class: 'btn btn-primary btn-big', href: '#/bottles/new?onboarding=1' }, icon('bottle'), 'Add a medicine'),

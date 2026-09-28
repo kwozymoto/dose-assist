@@ -129,6 +129,7 @@ export function confirmDialog(opts) {
       resolve(yes ? { value: input ? input.value : '' } : false);
     };
     const ok = h('button', { class: `btn ${opts.danger ? 'btn-danger' : 'btn-primary'}`, type: 'submit', value: 'ok' }, opts.confirm);
+    const no = h('button', { class: 'btn btn-secondary', type: 'submit', value: 'cancel' }, opts.cancel ?? 'Cancel');
     if (opts.input) {
       input = /** @type {HTMLInputElement} */ (h('input', { class: 'input', type: 'text', id: 'dlg-input', autocomplete: 'off' }));
       if (opts.input.required) {
@@ -151,7 +152,7 @@ export function confirmDialog(opts) {
       opts.input ? h('label', { class: 'field', for: 'dlg-input' }, h('span', { class: 'label' }, opts.input.label), input) : null,
       h('div', { class: 'actions' },
         ok,
-        h('button', { class: 'btn btn-secondary', type: 'submit', value: 'cancel' }, opts.cancel ?? 'Cancel'),
+        no,
       ),
     );
     dlg.appendChild(form);
@@ -159,7 +160,8 @@ export function confirmDialog(opts) {
     dlg.addEventListener('cancel', () => finish(false)); // Escape
     dlg.addEventListener('close', () => finish(dlg.returnValue === 'ok'));
     dlg.showModal();
-    (input ?? ok).focus();
+    // Enter must never confirm a risky choice by accident.
+    (input ?? no).focus();
   });
 }
 

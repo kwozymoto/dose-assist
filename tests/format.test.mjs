@@ -150,7 +150,7 @@ describe('cardStatus', () => {
     const s = status([dose('alpha', 100, 260 * MIN)]);
     assert.equal(s.kind, 'ok');
     assert.equal(s.icon, 'tick');
-    assert.equal(s.title, 'Alpha can be given now');
+    assert.equal(s.title, 'Alpha is allowed now');
     assert.equal(s.detail, 'Last: 7:40am (4 h 20 m ago)');
   });
 
@@ -229,15 +229,15 @@ describe('cardStatus with the parent\'s gap', () => {
     const c = row(270 * MIN, 330);
     assert.equal(c.kind, 'soon');
     assert.equal(c.title, 'Alpha: your 5½ h gap ends in 1 h');
-    assert.match(c.detail, /^Can be given now if needed · Last: /);
+    assert.match(c.detail, /^Allowed now if needed · Last: /);
     assert.ok(c.progress > 0 && c.progress < 1);
   });
 
   test('after the parent\'s gap: green, and says how long it has been allowed', () => {
     const c = row(5 * HOUR, 270);
     assert.equal(c.kind, 'ok');
-    assert.equal(c.title, 'Alpha can be given now');
-    assert.match(c.detail, /^Allowed for 30 m · Last: /);
+    assert.equal(c.title, 'Alpha is allowed now');
+    assert.match(c.detail, /^Allowed since 11:30am \(30 m ago\) · Last: /);
   });
 
   test('with no gap given the wording is unchanged', () => {

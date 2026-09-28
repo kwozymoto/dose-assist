@@ -48,7 +48,7 @@ export async function childDetail(ctx, opts = {}) {
   const showDeleted = ctx.query.get('deleted') === '1';
   const deletedCount = all.filter((d) => d.deletedAt).length;
 
-  const facts = [ageText(child.dateOfBirth, t), weight ? `${weight.kg} kg (${formatDate(weight.recordedAt, tz)})` : null].filter(Boolean).join(' · ');
+  const facts = [ageText(child.dateOfBirth, t), weight ? `${weight.kg} kg (weighed ${formatDate(weight.recordedAt, tz)})` : null].filter(Boolean).join(' · ');
 
   const dose = doseNow(child, rows, ctx);
   const only = opts.asHome || (await db.children.list()).length === 1;
@@ -164,6 +164,7 @@ export async function childForm(ctx) {
   let colour = editing?.colour ?? CHILD_COLOURS[(await db.children.list({ includeArchived: true })).length % CHILD_COLOURS.length].id;
   const error = h('p', { class: 'error', role: 'alert', hidden: true });
 
+  for (const el of [name, dob, kg]) el.addEventListener('input', () => { error.hidden = true; });
   const swatches = h('div', { class: 'swatches', role: 'radiogroup', 'aria-label': 'Colour' },
     CHILD_COLOURS.map((c) => {
       const input = /** @type {HTMLInputElement} */ (h('input', { type: 'radio', name: 'colour', value: c.id, id: `col-${c.id}`, checked: c.id === colour }));
@@ -176,6 +177,7 @@ export async function childForm(ctx) {
     e.preventDefault();
     const n = name.value.trim();
     if (!n) { error.textContent = 'Enter a name.'; error.hidden = false; name.focus(); return; }
+    error.hidden = true;
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dob.value) || dob.value > today) { error.textContent = 'Enter their date of birth. The app uses it to check age limits.'; error.hidden = false; dob.focus(); return; }
     let kgVal = null;
     if (kg.value.trim()) {
@@ -188,7 +190,7 @@ export async function childForm(ctx) {
     if (kgVal !== null) await db.weights.add({ id: db.uid(), childId: child.id, kg: Math.round(kgVal * 10) / 10, recordedAt: now() });
     await refreshReminders();
     toast(editing ? 'Saved' : `${n} added`);
-    ctx.go(onboardingFlow ? '/welcome?step=bottle' : `/child/${child.id}`);
+    ctx.go(onboardingFlow ? '/welcome?step=child' : `/child/${child.id}`);
   };
 
   const archive = async () => {

@@ -38,6 +38,7 @@ import { sources } from './views/sources.js';
  * @property {() => void} [cleanup]
  * @property {number} [refreshEvery]   re-render every n ms (countdowns)
  * @property {string} [kid]            the child's colour, when the screen is about one child
+ * @property {boolean} [hideTabs]      no tab bar (the give flow: its main button must never sit under it)
  */
 
 /** @type {[RegExp, string[], (ctx: Ctx) => Promise<Screen>][]} */
@@ -88,6 +89,9 @@ async function render(soft = false) {
   const [path, qs] = raw.split('?');
   const query = new URLSearchParams(qs || '');
 
+  // A dialog belongs to the screen that opened it. Moving to another screen
+  // (Back included) closes it as a cancel, so it can never act on the wrong one.
+  if (!soft) for (const d of document.querySelectorAll('dialog[open]')) /** @type {HTMLDialogElement} */ (d).close();
   const onboarded = await db.meta.get('onboardedAt', null);
   if (!onboarded && path !== '/welcome' && !path.startsWith('/child/new') && !path.startsWith('/bottles/new')) {
     go('/welcome', { replace: true });
@@ -151,7 +155,8 @@ function paint(s) {
   const main = /** @type {HTMLElement} */ (document.getElementById('view'));
   main.replaceChildren(s.node);
   const nav = /** @type {HTMLElement} */ (document.getElementById('tabs'));
-  nav.hidden = !!s.bare;
+  nav.hidden = !!s.bare || !!s.hideTabs;
+  document.body.classList.toggle('no-tabs', nav.hidden);
   for (const a of nav.querySelectorAll('a')) {
     const on = a.getAttribute('data-tab') === s.tab;
     a.classList.toggle('on', on);

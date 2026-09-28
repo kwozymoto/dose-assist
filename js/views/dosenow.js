@@ -12,6 +12,7 @@
 import { h, icon } from '../dom.js';
 import { now, timeZone } from '../clock.js';
 import { formatClock, formatGap, formatTime, formatDuration } from '../format.js';
+import { GUIDANCE } from '../content/guidance.js';
 import { pickHero } from '../engine/gap.js';
 import { cap } from '../status.js';
 
@@ -33,15 +34,16 @@ export function doseNow(child, rows, ctx) {
   const tz = timeZone();
   const hero = pickHero(rows);
   const row = hero ? rows.find((r) => r.ingredient === hero.ingredient) : undefined;
-  const view = hero && row ? heroView(hero.state, hero.ingredient, hero.plan, row.card, row.check.lastDose?.givenAt, t, tz) : { cls: 'dose-idle', icon: /** @type {const} */ ('dash'), line: 'No medicines yet' };
+  const view = hero && row ? heroView(hero.state, hero.ingredient, hero.plan, row.card, row.check.lastDose?.givenAt, t, tz) : { title: 'Dose now', cls: 'dose-idle', icon: /** @type {const} */ ('dash'), line: 'No medicines yet' };
+  const allBlocked = rows.length > 0 && rows.every((r) => r.plan.phase === 'blocked');
 
   const face = h('span', { class: 'dose-face' }, icon(view.icon));
   const bar = view.bar
     ? h('span', { class: 'dose-bar' }, h('i', { 'data-from': String(view.bar.from), 'data-until': String(view.bar.until), style: `width:${pct(view.bar.from, view.bar.until, t)}%` }))
     : null;
-  const button = h('a', { class: `dose-hero ${view.cls}`, href: `#/give?child=${child.id}`, 'aria-label': `Dose now for ${child.name}. ${view.spoken ?? view.line}` },
+  const button = h('a', { class: `dose-hero ${view.cls}`, href: `#/give?child=${child.id}`, 'aria-label': `${view.title} for ${child.name}. ${view.spoken ?? view.line}` },
     face,
-    h('span', { class: 'dose-title' }, 'Dose now'),
+    h('span', { class: 'dose-title' }, view.title),
     view.label ? h('span', { class: 'dose-label' }, view.label) : null,
     view.until !== undefined ? h('span', { class: 'dose-count', 'data-until': String(view.until) }, formatClock(view.until - t, { up: true })) : null,
     view.since !== undefined ? h('span', { class: 'dose-count', 'data-since': String(view.since) }, formatClock(t - view.since)) : null,
@@ -58,7 +60,7 @@ export function doseNow(child, rows, ctx) {
     el.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
     el.focus({ preventScroll: true });
   };
-  const actions = h('div', { class: 'below' },
+  const actions = allBlocked ? null : h('div', { class: 'below' },
     h('a', { class: 'btn btn-secondary', href: `#/give?child=${child.id}&when=earlier` }, icon('plus'), 'Add an earlier dose'),
     h('button', { class: 'btn btn-secondary', type: 'button', onclick: toTimeline }, icon('clock'), 'History and edit'),
     h('a', { class: 'btn btn-quiet below-wide', href: `#/child/${child.id}/gap` }, icon('settings'), 'Time between doses'),
@@ -87,6 +89,7 @@ const pct = (from, until, at) => (until > from ? Math.round(Math.min(1, Math.max
 
 /**
  * @typedef {object} HeroView
+ * @property {string} title   what the big button says: "Dose now" only when a dose is allowed
  * @property {string} cls
  * @property {'tick' | 'clock' | 'stop' | 'dash'} icon
  * @property {string} [label]
@@ -109,14 +112,14 @@ function heroView(state, ingredient, plan, card, lastAt, t, tz) {
   const target = plan.targetAt;
   if (state === 'ready' && plan.readySince !== null) {
     return {
-      cls: 'dose-ready', icon: 'tick', label: 'Allowed for', since: plan.readySince,
-      line: `${name}, since ${formatTime(plan.readySince, tz)}`,
-      spoken: `${name} can be given now. Allowed for ${formatDuration(t - plan.readySince)}.`,
+      title: 'Dose now', cls: 'dose-ready', icon: 'tick', label: `Allowed since ${formatTime(plan.readySince, tz)}`, since: plan.readySince,
+      line: `${name} · time since it was allowed`,
+      spoken: `${name} is allowed now. Allowed since ${formatTime(plan.readySince, tz)}, ${formatDuration(t - plan.readySince)} ago.`,
     };
   }
   if (state === 'early' && target !== null) {
     return {
-      cls: 'dose-wait', icon: 'clock', label: `Your ${formatGap(plan.gapMinutes)} gap ends in`, until: target,
+      title: 'Dose now', cls: 'dose-wait', icon: 'clock', label: `Your ${formatGap(plan.gapMinutes)} gap ends in`, until: target,
       line: `${name} is allowed now if needed`,
       spoken: `Your gap for ${ingredient} ends in ${formatDuration(target - t, { up: true })}. It is allowed now if needed.`,
       bar: { from: lastAt ?? target - plan.gapMinutes * 60000, until: target },
@@ -125,21 +128,24 @@ function heroView(state, ingredient, plan, card, lastAt, t, tz) {
   if (state === 'wait' && target !== null) {
     const longer = plan.ruleAt !== null && target > plan.ruleAt;
     return {
-      cls: 'dose-wait', icon: 'clock',
+      title: 'Not yet', cls: 'dose-wait', icon: 'clock',
       label: longer ? `Your ${formatGap(plan.gapMinutes)} gap ends in` : 'Next dose allowed in',
       until: target,
-      line: longer && plan.ruleAt !== null ? `${name}: earliest allowed ${formatTime(plan.ruleAt, tz)}` : `${name}, from ${formatTime(target, tz)}`,
+      line: longer && plan.ruleAt !== null ? `${name} is not allowed until ${formatTime(plan.ruleAt, tz)}` : `${name}, from ${formatTime(target, tz)}`,
       spoken: `${name} is not allowed yet. ${longer ? 'Your gap' : 'The wait'} ends in ${formatDuration(target - t, { up: true })}.`,
       bar: { from: lastAt ?? target - plan.gapMinutes * 60000, until: target },
     };
   }
   if (state === 'idle') {
-    return { cls: 'dose-idle', icon: 'dash', line: 'No doses in the last 24 hours', line2: card.detail };
+    return { title: 'Dose now', cls: 'dose-idle', icon: 'dash', line: 'No doses in the last 24 hours', line2: card.detail };
   }
-  if (state === 'limit' || state === 'blocked') {
-    return { cls: 'dose-limit', icon: 'stop', line: card.title, line2: card.detail, spoken: `${card.title}. ${card.detail ?? ''}` };
+  if (state === 'blocked') {
+    return { title: 'See a doctor', cls: 'dose-limit', icon: 'stop', line: card.title, line2: GUIDANCE.underMinAge.text, spoken: `${card.title}. ${GUIDANCE.underMinAge.text}` };
   }
-  return { cls: 'dose-idle', icon: 'dash', line: card.title };
+  if (state === 'limit') {
+    return { title: 'Not now', cls: 'dose-limit', icon: 'stop', line: card.title, line2: card.detail, spoken: `${card.title}. ${card.detail ?? ''}` };
+  }
+  return { title: 'Dose now', cls: 'dose-idle', icon: 'dash', line: card.title };
 }
 
 /** One small chip per medicine. @param {Row} r @param {number} t */

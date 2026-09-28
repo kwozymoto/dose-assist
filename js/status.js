@@ -93,11 +93,11 @@ export function cardStatus(check, ingredient, rule, now, timeZone, plan) {
       kind: 'soon',
       icon: 'clock',
       title: `${cap(name)}: your ${formatGap(plan.gapMinutes)} gap ends in ${formatDuration(plan.targetAt - now, { up: true })}`,
-      detail: `Can be given now if needed${lastLine ? ` · ${lastLine}` : ''}`,
+      detail: `Allowed now if needed${lastLine ? ` · ${lastLine}` : ''}`,
       nextAllowedAt: plan.targetAt,
       progress: span > 0 ? Math.min(1, Math.max(0, (now - last.givenAt) / span)) : 1,
     };
   }
-  const allowedFor = plan?.phase === 'ready' && plan.readySince !== null ? `Allowed for ${formatDuration(now - plan.readySince)}` : null;
-  return { kind: 'ok', icon: 'tick', title: `${cap(name)} can be given now`, detail: [allowedFor, lastLine].filter(Boolean).join(' · ') || undefined, nextAllowedAt: null };
+  const allowedFor = plan?.phase === 'ready' && plan.readySince !== null ? `Allowed since ${formatWhen(plan.readySince, now, timeZone)} (${formatAgo(plan.readySince, now)})` : null;
+  return { kind: 'ok', icon: 'tick', title: `${cap(name)} is allowed now`, detail: [allowedFor, lastLine].filter(Boolean).join(' · ') || undefined, nextAllowedAt: null };
 }

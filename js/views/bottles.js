@@ -139,7 +139,7 @@ function customForm(_ctx, done, back, bare) {
   const addRow = () => {
     n += 1;
     const i = n;
-    const ing = /** @type {HTMLSelectElement} */ (h('select', { class: 'input', id: `b-ing-${i}` },
+    const ing = /** @type {HTMLSelectElement} */ (h('select', { class: 'input', id: `b-ing-${i}`, 'aria-label': i === 1 ? 'Active ingredient' : 'Another ingredient' },
       known.map((k) => h('option', { value: k }, k)), h('option', { value: '__other' }, 'Something else')));
     const other = /** @type {HTMLInputElement} */ (h('input', { class: 'input', id: `b-other-${i}`, placeholder: 'Active ingredient, as on the label', hidden: true }));
     ing.addEventListener('change', () => { other.hidden = ing.value !== '__other'; });
@@ -148,7 +148,7 @@ function customForm(_ctx, done, back, bare) {
     rows.append(h('fieldset', { class: 'field ingredient-row', 'data-row': String(i) },
       h('legend', { class: 'label' }, i === 1 ? 'Active ingredient' : 'Another ingredient'),
       ing, other,
-      h('div', { class: 'two' }, field('Strength (mg)', `b-mg-${i}`, mg), field('Type it again', `b-mg2-${i}`, mg2)),
+      h('div', { class: 'two' }, field('Strength (mg)', `b-mg-${i}`, mg), field('Strength again (mg)', `b-mg2-${i}`, mg2)),
     ));
   };
   addRow();
@@ -157,7 +157,7 @@ function customForm(_ctx, done, back, bare) {
   const per2 = /** @type {HTMLInputElement} */ (h('input', { class: 'input', id: 'b-per2', inputmode: 'decimal', placeholder: 'again' }));
   const drawPer = () => {
     perWrap.replaceChildren(form.value === 'liquid'
-      ? h('div', { class: 'two' }, field('In how many mL?', 'b-per', per, 'e.g. 250 mg in 5 mL: enter 5'), field('Type it again', 'b-per2', per2))
+      ? h('div', { class: 'two' }, field('In how many mL?', 'b-per', per, 'e.g. 250 mg in 5 mL: enter 5'), field('mL again', 'b-per2', per2))
       : h('p', { class: 'small muted' }, 'Strength is per tablet.'));
   };
   form.addEventListener('change', drawPer);
@@ -166,7 +166,7 @@ function customForm(_ctx, done, back, bare) {
   const num = (/** @type {string} */ s) => { const v = Number(s.replace(',', '.').trim()); return Number.isFinite(v) && v > 0 ? v : null; };
   const save = async (/** @type {Event} */ e) => {
     e.preventDefault();
-    const fail = (/** @type {string} */ msg) => { error.textContent = msg; error.hidden = false; };
+    const fail = (/** @type {string} */ msg) => { error.textContent = msg; error.hidden = false; error.scrollIntoView({ block: 'center' }); };
     if (!name.value.trim()) return fail('Enter the name on the box.');
     const liquid = form.value === 'liquid';
     let strengthPer = 1;
@@ -196,6 +196,7 @@ function customForm(_ctx, done, back, bare) {
       components.push({ ingredient, strengthMg: a, strengthPer });
     }
     const strength = components.map((c) => `${formatStrength(c, form.value)} ${c.ingredient}`).join(' + ');
+    error.hidden = true;
     const ok = await confirmDialog({
       title: 'Is this exactly what the label says?',
       body: h('div', null, h('p', { class: 'strength' }, strength), photoUrl ? h('img', { src: photoUrl, alt: 'Your photo of the label', class: 'photo-check' }) : h('p', { class: 'small' }, 'Tip: add a photo of the label so anyone giving a dose can check it.')),

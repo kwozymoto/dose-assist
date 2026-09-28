@@ -95,7 +95,22 @@ export async function doseEdit(ctx) {
       });
       if (check.status !== 'OK') warning = 'With this change, this dose is outside the usual limits. It will be recorded as you enter it. If your child may have had too much, call the Poisons Centre.';
     }
-    const reason = await confirmDialog({ title: 'Save this change?', body: warning || 'The old values are kept in this dose’s history.', confirm: 'Save', input: { label: 'Why? (optional)' } });
+    // Would this change what the app allows right now? Moving a dose earlier
+    // can lift a stop; say so, so it is never done by accident.
+    let effect = '';
+    if (child) {
+      const all = await db.doses.forChild(child.id);
+      const edited = all.map((x) => (x.id === dose.id ? { ...x, ...changes } : x));
+      const t2 = now();
+      for (const ing of [...new Set(dose.components.map((c) => c.ingredient))]) {
+        const q = (/** @type {any[]} */ history) => checkDose({ components: [{ ingredient: ing }], rules: state.rules, history, now: t2, child: engineChild(child), timeZone: tz }).status;
+        const before = q(all);
+        const after = q(edited);
+        if (before !== 'OK' && after === 'OK') effect += ` After this change, ${ing} will be allowed now. It is not allowed now. Only save if this is what really happened.`;
+        else if (before === 'OK' && after !== 'OK') effect += ` After this change, ${ing} will not be allowed now.`;
+      }
+    }
+    const reason = await confirmDialog({ title: 'Save this change?', body: `${warning || 'The old values are kept in this dose’s history.'}${effect}`, confirm: 'Save', input: { label: 'Why? (optional)' } });
     if (!reason) return;
     await db.doses.edit(dose.id, changes, { by: who(), at: now(), reason: reason.value.trim() || undefined });
     await refreshReminders();
@@ -117,7 +132,7 @@ export async function doseEdit(ctx) {
   };
 
   const node = h('form', { class: 'stack', onsubmit: save },
-    h('p', null, h('strong', null, dose.bottle.name), ' · ', dose.bottle.components.map((c) => formatStrength(c, dose.bottle.form)).join(' + ')),
+    h('p', null, h('strong', null, child ? `${child.name}: ` : ''), h('strong', null, dose.bottle.name), ' · ', dose.bottle.components.map((c) => formatStrength(c, dose.bottle.form)).join(' + ')),
     field(`Amount (${dose.bottle.form === 'liquid' ? 'mL' : 'tablets'})`, 'e-amount', amount),
     field('Time given', 'e-at', at),
     field('Given by', 'e-by', by),

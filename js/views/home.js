@@ -46,9 +46,12 @@ export async function home(ctx) {
     const lead = all.filter((n) => n instanceof HTMLElement && n.classList.contains('notice-undo'));
     const after = all.filter((n) => !lead.includes(n));
     const screen = await childDetail({ ...ctx, params: { id: kids[0].id } }, { asHome: true, lead, after });
-    return { ...screen, back: false, tab: 'home' };
+    return { ...screen, title: 'Whendose', back: false, tab: 'home' };
   }
 
+  // The children come first; standing notices go below them. Undo stays on top.
+  const notices = [...node.childNodes].filter((n) => !(n instanceof HTMLElement && n.classList.contains('notice-undo')));
+  for (const n of notices) n.remove();
   node.prepend(hello(t));
 
   let soonest = Infinity;
@@ -58,6 +61,7 @@ export async function home(ctx) {
     node.append(childCard(child, rows, t));
   }
 
+  node.append(...notices);
   node.append(h('p', { class: 'muted small center' }, GUIDANCE.writeItDown.text));
 
   // Countdowns: refresh every 30 s, and exactly when the next wait ends.

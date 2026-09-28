@@ -33,7 +33,7 @@ export async function sources(_ctx) {
     ),
     Object.entries(r.ingredients).map(([name, rule]) => h('section', { class: 'card stack-sm' },
       h('h2', null, name.charAt(0).toUpperCase() + name.slice(1)),
-      h('dl', { class: 'facts' }, SHOWN.flatMap(([key, label, fmt]) => {
+      h('dl', { class: 'facts facts-wide' }, SHOWN.flatMap(([key, label, fmt]) => {
         const v = /** @type {any} */ (rule)[key];
         if (typeof v !== 'number') return [];
         const unverified = rule.unverified?.includes(key);

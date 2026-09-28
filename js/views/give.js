@@ -19,7 +19,7 @@ import { state, ingredientsOf, ruleFor, engineChild, bottleStatus } from '../sta
 import { checkDose } from '../engine/checkDose.js';
 import { componentsForAmount } from '../engine/amounts.js';
 import { now, timeZone } from '../clock.js';
-import { formatWhen, formatDuration, formatMg, formatAmount, formatStrength, formatTime, toLocalInput, fromLocalInput, formatAgeDays, formatInterval, parseAmount } from '../format.js';
+import { formatWhen, formatAgo, formatDuration, formatMg, formatAmount, formatStrength, formatTime, toLocalInput, fromLocalInput, formatAgeDays, formatInterval, parseAmount } from '../format.js';
 import { cardStatus, cap } from '../status.js';
 import { statusRow } from './home.js';
 import { BACKDATE_MAX_MS, SCHEDULE_PRESET_HOURS, UNDO_MS } from '../config.js';
@@ -28,6 +28,7 @@ import { EMERGENCY } from '../constants.js';
 import { refreshReminders } from '../reminders.js';
 import { enablePush, notifyPermission } from '../push.js';
 import { listNames } from '../schedule.js';
+import { clampGap } from '../engine/gap.js';
 
 /** @typedef {import('../app.js').Ctx} Ctx */
 /** @typedef {import('../app.js').Screen} Screen */
@@ -56,6 +57,11 @@ let logged = null;
 
 /** @param {Ctx} ctx @returns {Promise<Screen>} */
 export async function give(ctx) {
+  return { ...(await giveStep(ctx)), hideTabs: true };
+}
+
+/** @param {Ctx} ctx @returns {Promise<Screen>} */
+async function giveStep(ctx) {
   const q = ctx.query;
   const kids = await db.children.list();
   const childId = q.get('child') ?? (kids.length === 1 ? kids[0].id : null);
@@ -149,7 +155,7 @@ async function pickBottle(child, ingredientsParam, earlier = false) {
  */
 function productLine(s, b, t, tz) {
   const names = listNames(ingredientsOf(b));
-  if (s.status === 'OK') return { kind: 'ok', icon: 'tick', text: `${cap(names)} can be given now` };
+  if (s.status === 'OK') return { kind: 'ok', icon: 'tick', text: `${cap(names)} is allowed now` };
   if (s.status === 'BLOCKED') return { kind: 'blocked', icon: 'stop', text: 'Too young for this medicine in the app' };
   if (s.status === 'DAILY_LIMIT_REACHED') return { kind: 'limit', icon: 'stop', text: s.nextAllowedAt ? `24-hour limit reached. Next from ${formatWhen(s.nextAllowedAt, t, tz)}` : '24-hour limit reached' };
   if (s.nextAllowedAt) return { kind: 'soon', icon: 'clock', text: `Next from ${formatWhen(s.nextAllowedAt, t, tz)}` };
@@ -184,7 +190,7 @@ async function amountStep(ctx, child, bottle, base) {
     if (v === null) { mgOut.textContent = ''; return; }
     mgOut.textContent = `${formatAmount(v, bottle.form)} = ${componentsForAmount(bottle, v).map((c) => `${formatMg(c.mg)} ${c.ingredient}`).join(' + ')}`;
   };
-  amount.addEventListener('input', update);
+  amount.addEventListener('input', () => { error.hidden = true; update(); });
   const nudge = (/** @type {number} */ d) => {
     const v = parse() ?? 0;
     const next = Math.max(0, Math.round((v + d) * 100) / 100);
@@ -195,8 +201,8 @@ async function amountStep(ctx, child, bottle, base) {
   // When was it given? "Add an earlier dose" arrives here with ?when=earlier.
   const earlierFirst = ctx.query.get('when') === 'earlier';
   const earliest = t - BACKDATE_MAX_MS;
-  const whenNow = /** @type {HTMLInputElement} */ (h('input', { type: 'radio', name: 'when', id: 'when-now', value: 'now', checked: keep ? keep.givenAt === null : !earlierFirst }));
-  const whenEarlier = /** @type {HTMLInputElement} */ (h('input', { type: 'radio', name: 'when', id: 'when-earlier', value: 'earlier', checked: keep ? keep.givenAt !== null : earlierFirst }));
+  const whenNow = /** @type {HTMLInputElement} */ (h('input', { type: 'radio', name: 'when', id: 'when-now', value: 'now', checked: !(earlierFirst || (keep && keep.givenAt !== null)) }));
+  const whenEarlier = /** @type {HTMLInputElement} */ (h('input', { type: 'radio', name: 'when', id: 'when-earlier', value: 'earlier', checked: earlierFirst || (!!keep && keep.givenAt !== null) }));
   const at = /** @type {HTMLInputElement} */ (h('input', {
     class: 'input', type: 'datetime-local', id: 'given-at',
     min: toLocalInput(earliest, tz), max: toLocalInput(t, tz),
@@ -326,7 +332,7 @@ async function checkStep(ctx, child, bottle, base) {
     view = {
       title: backdated ? 'That was too soon' : 'Too soon',
       kind: 'soon', icon: 'clock',
-      big: backdated ? `At ${formatTime(at, tz)}, the next ${names} was not allowed until ${formatWhen(next, at, tz)}.` : `Next ${names} from ${formatWhen(next, t, tz)}`,
+      big: backdated ? `At ${formatTime(at, tz)}, the next ${names} was not allowed until ${formatWhen(next, at, tz)}.` : `Not yet. Next ${names} from ${formatWhen(next, t, tz)}`,
       lines: backdated ? [] : [`That is in ${formatDuration(next - t, { up: true })}.`],
     };
     if (rule) view.lines.push(`${cap(ing)} needs at least ${formatInterval(rule.minIntervalMinutes)} between doses.`);
@@ -367,10 +373,18 @@ async function checkStep(ctx, child, bottle, base) {
   // Other ingredients in a combination product, each on its own line.
   const others = Object.entries(check.perIngredient).filter(([k]) => k !== ing);
   const otherRows = others.length > 0
-    ? h('ul', { class: 'rows' }, others.map(([k, c]) => statusRow(cardStatus(c, k, ruleFor(k), t, tz))))
+    ? h('div', { class: 'stack-sm' },
+      h('p', null, `${bottle.name} also has ${listNames(others.map(([k]) => k))} in it. It cannot be given until everything in it is allowed.`),
+      h('ul', { class: 'rows' }, others.map(([k, c]) => statusRow(cardStatus(c, k, ruleFor(k), t, tz)))))
     : null;
 
   const alreadyGiven = async () => {
+    if (!backdated) {
+      // It happened already, so the time matters: ask for it, then check at that time.
+      toast('When was it given?');
+      ctx.go(`${base}&when=earlier`);
+      return;
+    }
     const ok = await confirmDialog({
       title: 'Record a dose that was already given?',
       body: 'It goes on the record so the times for the next dose are right. Recording it does not mean it was safe.',
@@ -412,13 +426,16 @@ async function checkStep(ctx, child, bottle, base) {
       : h('div', { class: 'actions' },
         check.status === 'EXCEEDS_LIMIT'
           ? h('a', { class: 'btn btn-primary btn-big', href: '#' + base }, 'Change the amount')
-          : h('a', { class: 'btn btn-primary btn-big', href: '#/' }, check.status === 'BLOCKED' ? 'Back home' : 'Don’t give it now'),
+          : check.status === 'BLOCKED'
+            ? h('a', { class: 'btn btn-primary btn-big', href: `tel:${EMERGENCY.healthline.tel}` }, icon('phone'), `Call Healthline ${EMERGENCY.healthline.display}`)
+            : h('a', { class: 'btn btn-primary btn-big', href: '#/' }, 'Don’t give it now'),
+        check.status === 'BLOCKED' ? h('a', { class: 'btn btn-secondary', href: '#/' }, 'Back home') : null,
         canRemind && check.nextAllowedAt ? h('button', { class: 'btn btn-secondary', onclick: remind }, icon('bell'), `Remind me at ${formatTime(check.nextAllowedAt, tz)}`) : null,
-        h('p', { class: 'small muted' }, 'Only if one of these is true:'),
+        check.status === 'BLOCKED' ? null : h('p', { class: 'small muted' }, check.status === 'TOO_SOON' ? 'Only if one of these is true:' : 'Only if this is true:'),
         check.status === 'TOO_SOON' ? h('button', { class: 'btn btn-quiet', onclick: doctor }, 'A doctor told me to give it now') : null,
         h('button', { class: 'btn btn-quiet', onclick: alreadyGiven }, 'It has already been given: record it'),
       ),
-    h('a', { class: 'btn btn-quiet', href: `tel:${EMERGENCY.healthline.tel}` }, icon('phone'), `Unsure? Call Healthline ${EMERGENCY.healthline.display}`),
+    check.status === 'BLOCKED' ? null : h('a', { class: 'btn btn-quiet', href: `tel:${EMERGENCY.healthline.tel}` }, icon('phone'), `Unsure? Call Healthline ${EMERGENCY.healthline.display}`),
   );
   return { title: view.title, back: base, node };
 }
@@ -467,6 +484,8 @@ async function confirmStep(ctx, child, bottle, base) {
   const names = await knownCaregivers();
   const by = /** @type {HTMLInputElement} */ (h('input', { class: 'input', id: 'given-by', list: 'caregivers', value: state.caregiver, autocomplete: 'name', placeholder: 'e.g. Mum, Dad, Nana' }));
   const warnings = warningList(check, child, bottle);
+  const byError = h('p', { class: 'error', role: 'alert', hidden: true }, 'Enter who gave it, so everyone sharing care can see.');
+  by.addEventListener('input', () => { byError.hidden = true; });
 
   const logIt = async (/** @type {Event} */ e) => {
     e.preventDefault();
@@ -480,7 +499,13 @@ async function confirmStep(ctx, child, bottle, base) {
       ctx.go(tooOld ? base : `${base}&step=check`, { replace: true });
       return;
     }
-    const who = by.value.trim() || 'Someone';
+    const who = by.value.trim();
+    if (!who) {
+      btn.disabled = false;
+      byError.hidden = false;
+      by.focus();
+      return;
+    }
     const weight = await db.weights.latest(child.id);
     const logTime = now();
     /** @type {DoseRecord} */
@@ -525,14 +550,19 @@ async function confirmStep(ctx, child, bottle, base) {
       ),
     ),
     d.override && check.status !== 'OK'
-      ? h('div', { class: 'notice notice-warn' }, icon('warn'), h('p', null, d.override === 'DOCTOR_ADVISED'
-        ? 'Recorded as: a doctor told you to give this dose now.'
-        : 'Recorded as: already given. This does not mean it was safe.'))
+      ? h('div', { class: 'notice notice-warn' }, icon('warn'), h('div', { class: 'stack-sm' },
+        h('p', null, d.override === 'DOCTOR_ADVISED'
+          ? 'Recorded as: a doctor told you to give this dose now.'
+          : 'Recorded as: already given. This does not mean it was safe.'),
+        ...Object.entries(check.perIngredient).map(([k, c]) => h('p', null,
+          c.lastDose ? `Last ${k}: ${formatWhen(c.lastDose.givenAt, t, tz)} (${formatAgo(c.lastDose.givenAt, t)}). ` : '',
+          `In the last 24 hours: ${c.dosesInLast24h} ${c.dosesInLast24h === 1 ? 'dose' : 'doses'}, ${formatMg(c.mgInLast24h)}.`))))
       : null,
     warnings,
     h('div', { class: 'field' },
       h('label', { class: 'label', for: 'given-by' }, 'Given by'),
       by,
+      byError,
       h('datalist', { id: 'caregivers' }, names.map((n) => h('option', { value: n }))),
     ),
     h('button', { class: 'btn btn-primary btn-big', id: 'log-btn', type: 'submit' }, icon('tick'), 'Log this dose'),
@@ -572,7 +602,19 @@ async function doneStep(ctx) {
   const ings = [...new Set(dose.components.map((c) => c.ingredient))];
   const history = await db.doses.forChild(child.id);
   const status = checkDose({ components: ings.map((ingredient) => ({ ingredient })), rules: state.rules, history, now: t, child: engineChild(child), timeZone: tz });
-  const nextAt = status.nextAllowedAt;
+  const ruleNext = status.nextAllowedAt;
+  // A "next allowed" reminder comes at the end of the parent's own gap, if longer (schedule.js).
+  /** @type {number | null} */
+  let nextAt = null;
+  if (ruleNext !== null) {
+    let at = ruleNext;
+    for (const ing of ings) {
+      const rule = ruleFor(ing);
+      const last = status.perIngredient[ing]?.lastDose?.givenAt;
+      if (rule && last !== undefined) at = Math.max(at, last + clampGap(rule, child.gapMinutes?.[ing]) * 60000);
+    }
+    nextAt = at;
+  }
 
   const worrying = dose.overrideReason === 'ALREADY_GIVEN' && dose.statusAtLog !== 'OK';
 
@@ -644,7 +686,7 @@ async function addReminder(r) {
     try { await enablePush(); } catch { /* the banner on home explains */ }
   }
   await refreshReminders();
-  toast('Reminder set');
+  toast((await notifyPermission()) === 'granted' ? 'Reminder set' : 'Reminder saved, but notifications are off, so it will only show inside the app. Turn them on in Settings.');
 }
 
 /* ---------------- pictures ---------------- */
@@ -656,7 +698,7 @@ async function addReminder(r) {
  * @param {number} ml
  */
 function syringe(ml) {
-  const size = ml <= 5 ? 5 : ml <= 10 ? 10 : Math.ceil(ml / 5) * 5;
+  const size = ml <= 5 ? 5 : ml <= 10 ? 10 : Math.min(60, Math.ceil(ml / 5) * 5);
   const W = 300;
   const x0 = 40;
   const len = 220;
