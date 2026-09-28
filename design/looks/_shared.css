@@ -1,0 +1,133 @@
+/* Shared structure for the friendly looks. Each look file supplies colour
+   tokens, shape tokens (--r-*), fonts and its own decoration; this file turns
+   those into the layout. Loaded after css/app.css.
+
+   Unchanged on purpose: 56 px targets, status carried by icon and words as
+   well as colour, one primary action per screen, stop screens that read as
+   stop screens. */
+
+body { font-family: var(--font-body); }
+h1, h2, h3, .btn, .kid-name, .stop-big, .confirm-amount, .strength, .tl-time, .tabs a, .label, .unit, .mg-line { font-family: var(--font-head); }
+body::before { content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none; }
+
+a { color: var(--link); }
+.btn-quiet, .tabs a.on, .iconbtn.call { color: var(--link); }
+.input:focus { border-color: var(--link); }
+.muted, .small.muted { color: var(--muted); }
+
+/* ---------- frame ---------- */
+.topbar {
+  background: color-mix(in srgb, var(--bg) 78%, transparent);
+  -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+  border-bottom: 0; padding: 6px 12px;
+  padding-top: calc(6px + env(safe-area-inset-top));
+}
+.topbar h1 { font-size: 1.35rem; font-weight: 800; }
+.iconbtn { width: 48px; height: 48px; margin: 4px; border-radius: 50%; background: var(--surface); box-shadow: var(--shadow); }
+.iconbtn-space { width: 56px; }
+.view { padding: 8px 16px 20px; }
+.lifeline { padding: 0 24px; }
+body { padding-bottom: calc(104px + env(safe-area-inset-bottom)); }
+
+.tabs {
+  left: 12px; right: 12px; bottom: calc(10px + env(safe-area-inset-bottom));
+  padding: 6px; gap: 4px; border: 0; border-radius: var(--r-dock);
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+  box-shadow: var(--dock-shadow);
+}
+.tabs a { min-height: 60px; border-radius: calc(var(--r-dock) - 6px); font-size: 0.8rem; font-weight: 700; }
+.tabs a.on { background: color-mix(in srgb, var(--primary) 34%, var(--surface)); color: var(--text); }
+.tabs a.on span { text-decoration: none; }
+.tabs a.on svg { color: var(--link); }
+
+/* ---------- greeting ---------- */
+.hello { display: flex; align-items: center; gap: 12px; padding: 4px 4px 0; }
+.hello h2 { font-size: 1.6rem; font-weight: 800; }
+.mascot { flex: none; display: block; width: 72px; height: 80px; }
+.mascot svg { display: block; overflow: visible; }
+.m-body { fill: var(--primary); stroke: var(--mascot-edge); stroke-width: 3; stroke-linejoin: round; }
+.m-shine { stroke: var(--surface); opacity: 0.85; }
+.m-cheek { fill: var(--kid-pink); opacity: 0.9; }
+.m-eye { fill: var(--on-kid); }
+.m-smile { stroke: var(--on-kid); }
+.m-spark { fill: var(--sparkle); }
+@media (prefers-reduced-motion: no-preference) {
+  .mascot { animation: bob 4.5s ease-in-out infinite; }
+  .m-spark { transform-origin: 66px 19px; animation: twinkle 3s ease-in-out infinite; }
+}
+@keyframes bob { 50% { transform: translateY(-5px) rotate(-2deg); } }
+@keyframes twinkle { 50% { transform: scale(0.6) rotate(20deg); opacity: 0.6; } }
+
+/* ---------- cards ---------- */
+.card { border-radius: var(--r-card); border: var(--card-border); box-shadow: var(--shadow); padding: 18px; background: var(--surface); }
+.kid { border-top: var(--card-border); gap: 14px; background: color-mix(in srgb, var(--kid) var(--kid-tint), var(--surface)); }
+.kid-name { font-size: 1.4rem; font-weight: 800; }
+.avatar {
+  width: 56px; height: 56px; border-radius: var(--r-avatar);
+  background: var(--kid, var(--primary)); color: var(--on-kid);
+  font-family: var(--font-head); font-weight: 800; font-size: 1.6rem;
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--surface) 80%, transparent), var(--avatar-shadow);
+}
+
+/* ---------- status rows ---------- */
+.status { border: 2px solid transparent; border-radius: var(--r-row); padding: 12px 14px; }
+.status-icon {
+  width: 46px; height: 46px; border-radius: 50%;
+  background: color-mix(in srgb, var(--surface) 78%, transparent);
+}
+.status-icon .icon { width: 28px; height: 28px; }
+.status-ok { border-color: color-mix(in srgb, var(--ok) 38%, transparent); }
+.status-soon { border-color: color-mix(in srgb, var(--soon) 38%, transparent); }
+.status-limit, .status-blocked, .status-exceeds { border-color: color-mix(in srgb, var(--stop) 45%, transparent); }
+.status-none { border-color: color-mix(in srgb, var(--none) 25%, transparent); }
+.ring-track { stroke: color-mix(in srgb, var(--soon) 22%, transparent); stroke-width: 6; }
+.ring-fill { stroke-width: 6; }
+
+/* ---------- buttons ---------- */
+.btn { border-radius: var(--r-btn); font-weight: 750; border-width: var(--btn-border); transition: transform 0.12s, box-shadow 0.12s; }
+.btn-primary { background: var(--primary); color: var(--primary-text); border-color: var(--btn-edge); box-shadow: var(--btn-shadow); }
+.btn-primary:active { transform: translateY(var(--press)); box-shadow: var(--btn-shadow-pressed); }
+.btn-secondary { background: var(--surface); color: var(--text); border-color: var(--line); }
+.btn-secondary:active { transform: translateY(1px); }
+.btn-danger { background: var(--danger); color: var(--danger-text); border-color: var(--danger); }
+.btn-danger-quiet { border-color: var(--stop); }
+.btn-big { min-height: 64px; font-size: 1.2rem; }
+.btn-quiet { font-weight: 700; }
+.btn-square { border-radius: 50%; }
+
+/* ---------- forms ---------- */
+.input { border-radius: var(--r-input); border-width: 2px; background: var(--surface); }
+.input-amount { border-radius: var(--r-card); }
+.check, .segmented label, .segmented .seg, .swatch { border-radius: var(--r-input); }
+.segmented label:has(input:checked), .segmented .seg.on { border-color: var(--link); background: color-mix(in srgb, var(--primary) 26%, var(--surface)); box-shadow: none; }
+.field .label, .label { font-weight: 750; }
+
+/* ---------- lists, choices, notices ---------- */
+.choice { border-radius: var(--r-row); border: var(--choice-border); box-shadow: var(--shadow); }
+.notice { border-radius: var(--r-row); }
+.notice-danger { border-radius: var(--r-card); }
+.product-banner { border-radius: var(--r-row); background: color-mix(in srgb, var(--primary) 22%, var(--surface)); }
+.badge { border-radius: var(--r-chip); padding: 3px 10px; }
+.tl-item { border-radius: var(--r-row); border: var(--choice-border); box-shadow: var(--shadow); }
+.tl-day { font-family: var(--font-head); font-weight: 800; margin-top: 12px; letter-spacing: 0.01em; }
+.summary { border-radius: var(--r-row); }
+.alert, .update-bar { border-radius: var(--r-card); }
+.dialog { border-radius: var(--r-card); }
+.toast { border-radius: var(--r-btn); }
+.photo-preview img, .photo-check { border-radius: var(--r-row); }
+
+/* ---------- the give flow ---------- */
+.confirm-card { border-radius: var(--r-card); border-width: 3px; padding: 20px; box-shadow: var(--shadow); background: color-mix(in srgb, var(--kid, var(--primary)) 16%, var(--surface)); }
+.confirm-amount { font-size: 2.8rem; font-weight: 800; }
+.syr-barrel { rx: 10px; }
+.syr-fill { fill: var(--primary); opacity: 0.85; }
+.pill { border-radius: 50%; }
+
+/* Stop screens stay serious: a heavier border, a bigger icon and bigger
+   words than anything else, on a coloured ground. Softer shape, same weight. */
+.stop-head { border-radius: var(--r-card); padding: 20px; gap: 16px; }
+.stop-soon .stop-head, .stop-limit .stop-head, .stop-blocked .stop-head { border-width: 3px; }
+.stop-icon .icon { width: 56px; height: 56px; }
+.stop-big { font-size: 1.5rem; font-weight: 800; line-height: 1.2; }
+.done-head { border-radius: var(--r-card); border-width: 3px; }

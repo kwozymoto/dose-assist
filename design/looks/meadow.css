@@ -1,0 +1,116 @@
+/* Option A: Meadow. Calm, airy and warm. Soft blue as the brand, mint, butter
+   and blush for status, lilac for accents. Nunito throughout. Pill buttons,
+   very round cards, gentle coloured shadows and soft colour blobs behind. */
+
+@font-face { font-family: "Nunito"; font-style: normal; font-weight: 200 1000; font-display: swap; src: url("../fonts/nunito-latin-wght-normal.woff2") format("woff2"); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: "Nunito"; font-style: normal; font-weight: 200 1000; font-display: swap; src: url("../fonts/nunito-latin-ext-wght-normal.woff2") format("woff2"); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+
+:root,
+[data-theme="light"] {
+  --bg: #f5f9ff;
+  --surface: #ffffff;
+  --surface-2: #eaf2fd;
+  --text: #1f2d4a;
+  --muted: #52617c;
+  --line: #d5e2f4;
+  --primary: #8fc6f8;
+  --primary-text: #0d2a4a;
+  --link: #1c5ea8;
+  --focus: #a34a00;
+  --ok: #1b6a44;
+  --ok-bg: #d9f4e5;
+  --soon: #7a5000;
+  --soon-bg: #fff0bf;
+  --stop: #a1214e;
+  --stop-bg: #ffdce8;
+  --none: #52617c;
+  --none-bg: #ecf0f8;
+  --warn-bg: #fff2c4;
+  --warn-text: #5a4200;
+  --test-bg: #e9deff;
+  --test-text: #43278a;
+  --danger: #b0244f;
+  --danger-text: #ffffff;
+  --kid-teal: #a3e3d8;
+  --kid-orange: #ffcda8;
+  --kid-purple: #d5c2f7;
+  --kid-blue: #aad4fb;
+  --kid-pink: #ffc2d8;
+  --kid-green: #c3e8a4;
+  --on-kid: #1f2d4a;
+  --btn-edge: #6db1ec;
+  --mascot-edge: #5c9fdb;
+  --sparkle: #ffc94d;
+
+  --font-head: "Nunito", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-body: "Nunito", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --r-card: 28px; --r-row: 20px; --r-input: 18px; --r-btn: 999px; --r-chip: 999px; --r-dock: 30px; --r-avatar: 50%;
+  --card-border: 0; --choice-border: 0; --btn-border: 2px; --kid-tint: 24%; --press: 2px;
+  --shadow: 0 10px 24px -12px rgb(60 100 170 / 0.35), 0 1px 3px rgb(60 100 170 / 0.08);
+  --dock-shadow: 0 12px 30px -10px rgb(60 100 170 / 0.4), 0 1px 3px rgb(60 100 170 / 0.1);
+  --btn-shadow: 0 8px 16px -8px rgb(50 120 200 / 0.6);
+  --btn-shadow-pressed: 0 3px 8px -4px rgb(50 120 200 / 0.6);
+  --avatar-shadow: 0 6px 12px -6px rgb(60 100 170 / 0.5);
+}
+
+[data-theme="dark"] {
+  --bg: #131a2e;
+  --surface: #1d2640;
+  --surface-2: #283358;
+  --text: #edf1fc;
+  --muted: #b0bad6;
+  --line: #37456b;
+  --primary: #8fc6f8;
+  --primary-text: #0d2a4a;
+  --link: #a9d3fb;
+  --focus: #ffbb66;
+  --ok: #9ee5b9;
+  --ok-bg: #1b3a2e;
+  --soon: #ffd978;
+  --soon-bg: #3b3316;
+  --stop: #ffa5c0;
+  --stop-bg: #431f30;
+  --none: #b0bad6;
+  --none-bg: #283358;
+  --warn-bg: #3b3316;
+  --warn-text: #ffe8a3;
+  --test-bg: #32285a;
+  --test-text: #dccbff;
+  --danger: #ff9bb9;
+  --danger-text: #2b0d18;
+  --kid-teal: #a3e3d8;
+  --kid-orange: #ffcda8;
+  --kid-purple: #d5c2f7;
+  --kid-blue: #aad4fb;
+  --kid-pink: #ffc2d8;
+  --kid-green: #c3e8a4;
+  --on-kid: #1f2d4a;
+  --btn-edge: #b4dcfb;
+  --mascot-edge: #c5e4fc;
+  --sparkle: #ffd978;
+  --shadow: 0 10px 24px -12px rgb(0 0 0 / 0.55);
+  --dock-shadow: 0 12px 30px -10px rgb(0 0 0 / 0.65);
+  --btn-shadow: 0 8px 18px -8px rgb(0 0 0 / 0.6);
+  --btn-shadow-pressed: 0 3px 8px -4px rgb(0 0 0 / 0.6);
+  --avatar-shadow: 0 6px 12px -6px rgb(0 0 0 / 0.6);
+}
+
+/* Soft colour blobs behind everything. */
+body::before {
+  background:
+    radial-gradient(360px 300px at 100% 0%, rgb(180 220 255 / 0.75), transparent 70%),
+    radial-gradient(320px 280px at 0% 30%, rgb(255 205 224 / 0.6), transparent 70%),
+    radial-gradient(360px 300px at 100% 68%, rgb(255 238 178 / 0.7), transparent 70%),
+    radial-gradient(340px 300px at 0% 100%, rgb(206 240 216 / 0.75), transparent 70%);
+}
+[data-theme="dark"] body::before {
+  background:
+    radial-gradient(360px 300px at 100% 0%, rgb(70 110 190 / 0.35), transparent 70%),
+    radial-gradient(320px 280px at 0% 32%, rgb(150 70 120 / 0.25), transparent 70%),
+    radial-gradient(360px 300px at 100% 70%, rgb(140 120 50 / 0.18), transparent 70%),
+    radial-gradient(340px 300px at 0% 100%, rgb(50 130 100 / 0.25), transparent 70%);
+}
+
+/* A little sun by the greeting, and a leaf-shaped avatar ring. */
+.hello h2 { color: var(--text); }
+.kid-head .icon { color: var(--link); }

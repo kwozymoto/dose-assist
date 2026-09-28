@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en-NZ">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dose Assist look options</title>
+<style>
+  :root { --b:#f4f5fa; --t:#1d2240; --m:#5a6080; --c:#fff; --l:#d9dcec; --a:#3f51d6; }
+  body.dark { --b:#12142a; --t:#eef0ff; --m:#a9aed2; --c:#1d2040; --l:#353a68; --a:#a9b8ff; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 15px/1.5 system-ui, sans-serif; background: var(--b); color: var(--t); }
+  header { position: sticky; top: 0; z-index: 5; background: var(--c); border-bottom: 1px solid var(--l); padding: 12px 20px; display: flex; flex-wrap: wrap; gap: 10px 24px; align-items: center; }
+  h1 { font-size: 1.05rem; margin: 0 8px 0 0; }
+  .grp { display: flex; gap: 4px; align-items: center; }
+  .grp > span { color: var(--m); font-size: .8rem; margin-right: 4px; }
+  button { font: inherit; border: 1px solid var(--l); background: var(--b); color: var(--t); padding: 6px 14px; border-radius: 999px; cursor: pointer; }
+  button[aria-pressed="true"] { background: var(--a); color: var(--c); border-color: var(--a); }
+  main { padding: 20px; }
+  .look { margin-bottom: 36px; }
+  .look h2 { margin: 0; font-size: 1.15rem; }
+  .look p { margin: 2px 0 12px; color: var(--m); max-width: 70ch; }
+  .row { display: flex; gap: 18px; overflow-x: auto; padding: 4px 4px 16px; }
+  figure { margin: 0; flex: none; }
+  figcaption { font-size: .8rem; color: var(--m); margin: 0 0 6px 4px; }
+  iframe { width: 390px; height: 800px; border: 1px solid var(--l); border-radius: 28px; background: #fff; display: block; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Dose Assist looks</h1>
+  <div class="grp" id="lookGrp"><span>Show</span></div>
+  <div class="grp" id="themeGrp"><span>Theme</span></div>
+</header>
+<main id="main"></main>
+<script>
+const LOOKS = [
+  ['current','Current','What the app looks like today, for comparison.'],
+  ['meadow','A. Meadow','Calm and airy. Soft blue brand, mint, butter and blush. Pill buttons, very round cards, gentle shadows, soft colour blobs.'],
+  ['playground','B. Playground','Bolder and more whimsical. Sticker-style outlines, buttons that squish when pressed, coloured-pencil shading backdrop, rounded Fredoka headings.'],
+  ['dreamy','C. Dreamy','Sky-to-lilac gradient with clouds by day, twilight with stars at night. Frosted-glass cards, periwinkle brand.']
+];
+const SCREENS = [['home','Home'],['amount','How much'],['stop','Stop (too soon)'],['confirm','Confirm'],['history','History']];
+const CONCEPTS = [['B: both waiting','screen=nightB&state=wait'],['B: past earliest, before my gap is up','screen=nightB&state=early'],['B: allowed, counting up','screen=nightB&state=ready'],['B: limit reached','screen=nightB&state=limit'],['Time between doses','screen=gap']];
+const q = new URLSearchParams(location.search);
+let show = q.get('look') || 'all', theme = q.get('theme') === 'dark' ? 'dark' : 'light';
+function btn(grp, label, on, fn){ const b=document.createElement('button'); b.textContent=label; b.setAttribute('aria-pressed', on); b.onclick=fn; grp.append(b); return b; }
+function render(){
+  document.body.classList.toggle('dark', theme==='dark');
+  for (const id of ['lookGrp','themeGrp']) { const g=document.getElementById(id); g.replaceChildren(g.firstChild); }
+  const lg=document.getElementById('lookGrp');
+  btn(lg,'All',show==='all',()=>{show='all';render();});
+  for (const [k,n] of LOOKS) btn(lg,n.split('.')[0].length===1?n.split('.')[0]:n,show===k,()=>{show=k;render();});
+  const tg=document.getElementById('themeGrp');
+  btn(tg,'Light',theme==='light',()=>{theme='light';render();});
+  btn(tg,'Dark',theme==='dark',()=>{theme='dark';render();});
+  const main=document.getElementById('main'); main.replaceChildren();
+  for (const [k,n,d] of LOOKS) {
+    if (show!=='all' && show!==k) continue;
+    const s=document.createElement('section'); s.className='look';
+    s.innerHTML=`<h2>${n}</h2><p>${d}</p>`;
+    const row=document.createElement('div'); row.className='row';
+    for (const [sc,label] of SCREENS) {
+      const f=document.createElement('figure');
+      f.innerHTML=`<figcaption>${label}</figcaption><iframe loading="lazy" title="${n} ${label}" src="screen.html?screen=${sc}&look=${k}&theme=${theme}"></iframe>`;
+      row.append(f);
+    }
+    s.append(row); main.append(s);
+  }
+  const cl = ['meadow','playground','dreamy'].includes(show) ? show : 'playground';
+  const c=document.createElement('section'); c.className='look';
+  c.innerHTML=`<h2>Night-time home: Dose now (option B) (${cl})</h2><p>One big Dose now button. It counts down to the parent's chosen gap, then counts up from the moment a dose was allowed. A chip per medicine sits underneath. "Add an earlier dose", "History and edit" and "Time between doses" are one tap away. Counters are live.</p>`;
+  const crow=document.createElement('div'); crow.className='row';
+  for (const [lab,qs] of CONCEPTS) {
+    const f=document.createElement('figure');
+    f.innerHTML=`<figcaption>${lab}</figcaption><iframe loading="lazy" title="${lab}" src="screen.html?${qs}&look=${cl}&theme=${theme}"></iframe>`;
+    crow.append(f);
+  }
+  c.append(crow); main.append(c);
+}
+render();
+</script>
+</body>
+</html>

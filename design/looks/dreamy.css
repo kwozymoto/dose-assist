@@ -1,0 +1,139 @@
+/* Option C: Dreamy. A soft sky-to-lilac gradient with clouds by day and
+   a starry twilight at night (the 3am mode). Frosted, rounded cards, pastel
+   periwinkle brand colour. Quicksand for headings, Nunito for reading. */
+
+@font-face { font-family: "Quicksand"; font-style: normal; font-weight: 300 700; font-display: swap; src: url("../fonts/quicksand-latin-wght-normal.woff2") format("woff2"); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: "Quicksand"; font-style: normal; font-weight: 300 700; font-display: swap; src: url("../fonts/quicksand-latin-ext-wght-normal.woff2") format("woff2"); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: "Nunito"; font-style: normal; font-weight: 200 1000; font-display: swap; src: url("../fonts/nunito-latin-wght-normal.woff2") format("woff2"); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: "Nunito"; font-style: normal; font-weight: 200 1000; font-display: swap; src: url("../fonts/nunito-latin-ext-wght-normal.woff2") format("woff2"); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+
+:root,
+[data-theme="light"] {
+  --bg: #edf1ff;
+  --surface: #ffffff;
+  --surface-2: #eceaff;
+  --text: #232a5c;
+  --muted: #545c8c;
+  --line: #d7dcf7;
+  --primary: #a9b8ff;
+  --primary-text: #171c5a;
+  --link: #3641b3;
+  --focus: #a34a00;
+  --ok: #1a6a4c;
+  --ok-bg: #d6f5e6;
+  --soon: #775000;
+  --soon-bg: #fff0c2;
+  --stop: #a01f52;
+  --stop-bg: #ffdbe9;
+  --none: #545c8c;
+  --none-bg: #eceffc;
+  --warn-bg: #fff2c7;
+  --warn-text: #5a4200;
+  --test-bg: #e6dcff;
+  --test-text: #42268c;
+  --danger: #ae2255;
+  --danger-text: #ffffff;
+  --kid-teal: #a5e6dc;
+  --kid-orange: #ffd0b0;
+  --kid-purple: #d8c6fa;
+  --kid-blue: #b3d6ff;
+  --kid-pink: #ffc6dc;
+  --kid-green: #c6ebaa;
+  --on-kid: #232a5c;
+  --btn-edge: #8598f0;
+  --mascot-edge: #7f90ee;
+  --sparkle: #ffd166;
+
+  --font-head: "Quicksand", "Nunito", system-ui, sans-serif;
+  --font-body: "Nunito", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --r-card: 32px; --r-row: 22px; --r-input: 20px; --r-btn: 999px; --r-chip: 999px; --r-dock: 34px; --r-avatar: 50%;
+  --card-border: 1.5px solid rgb(255 255 255 / 0.85); --choice-border: 1.5px solid rgb(255 255 255 / 0.85); --btn-border: 2px; --kid-tint: 26%; --press: 2px;
+  --shadow: 0 14px 32px -14px rgb(70 70 170 / 0.4), 0 1px 3px rgb(70 70 170 / 0.08);
+  --dock-shadow: 0 14px 34px -12px rgb(70 70 170 / 0.5);
+  --btn-shadow: 0 10px 22px -10px rgb(80 90 220 / 0.7);
+  --btn-shadow-pressed: 0 3px 8px -4px rgb(80 90 220 / 0.7);
+  --avatar-shadow: 0 8px 16px -8px rgb(70 70 170 / 0.5);
+}
+
+[data-theme="dark"] {
+  --bg: #0f1230;
+  --surface: #1b1f4b;
+  --surface-2: #262b5f;
+  --text: #f0f1ff;
+  --muted: #b9bfe8;
+  --line: #39407a;
+  --primary: #b3c0ff;
+  --primary-text: #141852;
+  --link: #c5cfff;
+  --focus: #ffc27a;
+  --ok: #a0ead0;
+  --ok-bg: #17382f;
+  --soon: #ffdf85;
+  --soon-bg: #3b3417;
+  --stop: #ffabc7;
+  --stop-bg: #46203b;
+  --none: #b9bfe8;
+  --none-bg: #262b5f;
+  --warn-bg: #3b3417;
+  --warn-text: #ffeaa8;
+  --test-bg: #33296a;
+  --test-text: #e0d3ff;
+  --danger: #ff9fbf;
+  --danger-text: #2b0d1c;
+  --kid-teal: #a5e6dc;
+  --kid-orange: #ffd0b0;
+  --kid-purple: #d8c6fa;
+  --kid-blue: #b3d6ff;
+  --kid-pink: #ffc6dc;
+  --kid-green: #c6ebaa;
+  --on-kid: #232a5c;
+  --btn-edge: #7f90ee;
+  --mascot-edge: #dfe5ff;
+  --sparkle: #ffdf85;
+  --card-border: 1.5px solid rgb(255 255 255 / 0.1);
+  --choice-border: 1.5px solid rgb(255 255 255 / 0.1);
+  --shadow: 0 14px 32px -14px rgb(0 0 0 / 0.6);
+  --dock-shadow: 0 14px 34px -12px rgb(0 0 0 / 0.7);
+  --btn-shadow: 0 10px 24px -10px rgb(150 165 255 / 0.55);
+  --btn-shadow-pressed: 0 3px 8px -4px rgb(150 165 255 / 0.55);
+  --avatar-shadow: 0 8px 16px -8px rgb(0 0 0 / 0.6);
+}
+
+/* Day: sky to lilac to blush, with a few clouds. */
+body::before {
+  background:
+    radial-gradient(60px 24px at 18% 9%, rgb(255 255 255 / 0.9) 60%, transparent 100%),
+    radial-gradient(90px 34px at 27% 8%, rgb(255 255 255 / 0.85) 60%, transparent 100%),
+    radial-gradient(70px 26px at 82% 22%, rgb(255 255 255 / 0.8) 60%, transparent 100%),
+    radial-gradient(100px 36px at 72% 24%, rgb(255 255 255 / 0.7) 60%, transparent 100%),
+    radial-gradient(80px 28px at 12% 62%, rgb(255 255 255 / 0.6) 60%, transparent 100%),
+    linear-gradient(165deg, #d9ebff 0%, #e9e2ff 48%, #ffe5f1 100%);
+}
+/* Night: twilight with stars and a moon glow. */
+[data-theme="dark"] body::before {
+  background:
+    radial-gradient(circle 2px at 12% 10%, rgb(255 255 255 / 0.9) 98%, transparent),
+    radial-gradient(circle 1.5px at 30% 22%, rgb(255 255 255 / 0.7) 98%, transparent),
+    radial-gradient(circle 2px at 55% 8%, rgb(255 255 255 / 0.85) 98%, transparent),
+    radial-gradient(circle 1.5px at 78% 30%, rgb(255 255 255 / 0.7) 98%, transparent),
+    radial-gradient(circle 2px at 90% 14%, rgb(255 255 255 / 0.9) 98%, transparent),
+    radial-gradient(circle 1.5px at 20% 48%, rgb(255 255 255 / 0.6) 98%, transparent),
+    radial-gradient(circle 2px at 66% 58%, rgb(255 255 255 / 0.7) 98%, transparent),
+    radial-gradient(circle 1.5px at 8% 82%, rgb(255 255 255 / 0.6) 98%, transparent),
+    radial-gradient(circle 2px at 86% 76%, rgb(255 255 255 / 0.8) 98%, transparent),
+    radial-gradient(220px 220px at 92% 4%, rgb(190 180 255 / 0.28), transparent 70%),
+    linear-gradient(175deg, #0c0f2e 0%, #1a1548 58%, #2b1a52 100%);
+}
+
+.hello h2 { font-weight: 700; }
+.topbar h1, .kid-name, .stop-big, .confirm-amount, .strength { font-weight: 700; }
+.btn { font-weight: 700; }
+.btn-primary { background: linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 60%, #e6c9ff)); }
+[data-theme="dark"] .btn-primary { background: linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 65%, #f2c6ff)); }
+.card, .choice, .tl-item, .confirm-card { -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); }
+.card:not(.kid) { background: color-mix(in srgb, var(--surface) 82%, transparent); }
+.kid { background: color-mix(in srgb, var(--kid) var(--kid-tint), color-mix(in srgb, var(--surface) 85%, transparent)); }
+.choice, .tl-item { background: color-mix(in srgb, var(--surface) 84%, transparent); }
+.confirm-card { background: color-mix(in srgb, var(--kid, var(--primary)) 16%, color-mix(in srgb, var(--surface) 88%, transparent)); }
+.avatar { box-shadow: 0 0 0 4px rgb(255 255 255 / 0.55), var(--avatar-shadow); }
+[data-theme="dark"] .avatar { box-shadow: 0 0 0 4px rgb(255 255 255 / 0.18), var(--avatar-shadow); }

@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="en-NZ" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Dose Assist design screen</title>
+  <script>
+    /* Design review page. ?screen=home|amount|stop|confirm|history&look=current|meadow|playground|dreamy&theme=light|dark */
+    var q = new URLSearchParams(location.search);
+    var look = q.get('look') || 'current';
+    document.documentElement.dataset.theme = q.get('theme') === 'dark' ? 'dark' : 'light';
+    document.documentElement.dataset.look = look;
+    var kidOf = { home: null, amount: 'blue', stop: 'blue', confirm: 'blue', history: 'blue', nightA: 'blue', nightB: 'blue', gap: 'blue' };
+    var kid = q.get('kid') || kidOf[q.get('screen') || 'home'];
+    if (kid) document.documentElement.dataset.kid = kid;
+    document.write('<link rel="stylesheet" href="../css/app.css">');
+    if (look !== 'current') document.write('<link rel="stylesheet" href="looks/_shared.css"><link rel="stylesheet" href="looks/' + look + '.css"><link rel="stylesheet" href="looks/_dosenow.css">');
+    else document.write('<style>.hello{display:none}</style>');
+  </script>
+</head>
+<body>
+  <header id="topbar" class="topbar"></header>
+  <main id="view" class="view"></main>
+  <p id="lifeline" class="lifeline">In an emergency, call <a href="tel:111">111</a>. Not sure? Call Healthline <a href="tel:0800611116">0800 611 116</a>, free, any time.</p>
+  <nav id="tabs" class="tabs" aria-label="Main">
+    <a href="#" data-tab="home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11l8-7 8 7v8.5a1 1 0 0 1-1 1h-4.5v-6h-5v6H5a1 1 0 0 1-1-1z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg><span>Home</span></a>
+    <a href="#" data-tab="bottles"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 3h5v3l2 2.5V20a1 1 0 0 1-1 1h-7a1 1 0 0 1-1-1V8.5l2-2.5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M7.5 12.5h9" stroke="currentColor" stroke-width="2"/></svg><span>Medicines</span></a>
+    <a href="#" data-tab="help"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .8-1 1.5v.7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="17" r="1.2" fill="currentColor"/></svg><span>Help</span></a>
+    <a href="#" data-tab="settings"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>Settings</span></a>
+  </nav>
+  <script type="module">
+    import { h, icon, ring } from '../js/dom.js';
+
+    const screen = q.get('screen') || 'home';
+
+    /* A friendly character for the greeting. Drawn with theme tokens so it
+       follows light and dark. */
+    const mascot = () => {
+      const s = document.createElement('span');
+      s.className = 'mascot';
+      s.setAttribute('aria-hidden', 'true');
+      s.innerHTML = `<svg viewBox="0 0 80 88" width="72" height="80" focusable="false">
+        <path class="m-body" d="M40 6C40 6 12 34 12 55a28 28 0 0 0 56 0C68 34 40 6 40 6z"/>
+        <path class="m-shine" d="M24 52a16 16 0 0 1 8-13" fill="none" stroke-width="5" stroke-linecap="round"/>
+        <ellipse class="m-cheek" cx="24" cy="62" rx="6" ry="4"/><ellipse class="m-cheek" cx="56" cy="62" rx="6" ry="4"/>
+        <circle class="m-eye" cx="31" cy="54" r="3.6"/><circle class="m-eye" cx="49" cy="54" r="3.6"/>
+        <path class="m-smile" d="M33 64q7 7 14 0" fill="none" stroke-width="3.2" stroke-linecap="round"/>
+        <path class="m-spark" d="M66 14l2 5 5 2-5 2-2 5-2-5-5-2 5-2z"/>
+      </svg>`;
+      return s;
+    };
+
+    const status = (kind, ic, title, detail, progress) =>
+      h('li', { class: `status status-${kind}` },
+        progress !== undefined ? ring(progress) : h('span', { class: 'status-icon' }, icon(ic)),
+        h('div', { class: 'status-text' }, h('strong', null, title), detail ? h('span', { class: 'small' }, detail) : null));
+
+    const kidCard = (name, colour, age, rows) =>
+      h('section', { class: `card kid kid-${colour}` },
+        h('a', { class: 'kid-head', href: '#' },
+          h('span', { class: 'avatar', 'aria-hidden': 'true' }, name[0]),
+          h('span', { class: 'kid-name' }, h('span', null, name), h('span', { class: 'muted small' }, age)),
+          icon('chevron')),
+        h('ul', { class: 'rows' }, rows),
+        h('a', { class: 'btn btn-primary btn-big', href: '#' }, icon('plus'), `Give ${name} a dose`));
+
+    const syringe = (ml) => {
+      const size = 5, W = 300, x0 = 40, len = 220, fill = Math.min(1, ml / size) * len;
+      let ticks = '';
+      for (let i = 0; i <= size; i += 1) {
+        const x = x0 + (i / size) * len;
+        ticks += `<line x1="${x}" y1="18" x2="${x}" y2="${i % 5 === 0 ? 30 : 25}" class="syr-tick"/>` + (i % 5 === 0 ? `<text x="${x}" y="64" class="syr-num">${i}</text>` : '');
+      }
+      const d = document.createElement('div');
+      d.className = 'syringe';
+      d.innerHTML = `<svg viewBox="0 0 ${W} 72" width="100%" preserveAspectRatio="xMidYMid meet">
+        <rect x="${x0 - 22}" y="28" width="22" height="6" class="syr-tip"/>
+        <rect x="${x0}" y="16" width="${len}" height="30" rx="4" class="syr-barrel"/>
+        <rect x="${x0}" y="16" width="${fill}" height="30" rx="4" class="syr-fill"/>
+        <rect x="${x0 + fill}" y="12" width="6" height="38" class="syr-plunger"/>
+        <rect x="${x0 + fill + 6}" y="28" width="${len - fill + 24}" height="6" class="syr-rod"/>${ticks}</svg>`;
+      return d;
+    };
+
+    const fmt = (s) => { s = Math.max(0, s); const hh = Math.floor(s / 3600), mm = Math.floor((s % 3600) / 60), ss = s % 60; return `${hh}:${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`; };
+    const who = () => h('div', { class: 'who' }, h('span', { class: 'avatar', 'aria-hidden': 'true' }, 'A'), h('div', null, h('h2', null, 'Ari'), h('p', { class: 'muted small' }, '3 years, 2 months')));
+    const doseBtn = (k, med, state, sub, wait) => h('a', { class: `dose-btn dose-${k}`, href: '#' },
+      h('span', { class: 'dose-face' }, wait ? ring(1 - wait.secs / wait.total) : icon(k === 'ready' ? 'tick' : 'stop')),
+      h('span', { class: 'dose-text' }, h('span', { class: 'dose-med' }, med),
+        wait ? h('span', { class: 'dose-count cd', 'data-secs': wait.secs }, fmt(wait.secs)) : h('strong', { class: 'dose-state' }, state),
+        h('span', { class: 'dose-sub' }, sub)),
+      h('span', { class: 'dose-go' }, icon('chevron')));
+    const below = (gap) => h('div', { class: 'below' },
+      h('a', { class: 'btn btn-secondary', href: '#' }, icon('plus'), 'Add an earlier dose'),
+      h('a', { class: 'btn btn-secondary', href: '#' }, icon('clock'), 'History and edit'),
+      gap ? h('a', { class: 'btn btn-quiet below-wide', href: '#' }, icon('settings'), 'Time between doses') : null);
+    setInterval(() => {
+      for (const e of document.querySelectorAll('.cd')) { const v = Math.max(0, Number(e.dataset.secs) - 1); e.dataset.secs = v; e.textContent = fmt(v); }
+      for (const e of document.querySelectorAll('.cu')) { const v = Number(e.dataset.secs) + 1; e.dataset.secs = v; e.textContent = fmt(v); }
+    }, 1000);
+
+    const screens = {
+      home: () => ({
+        title: 'Dose Assist', tab: 'home', back: false,
+        node: h('div', { class: 'stack' },
+          h('div', { class: 'hello' }, mascot(), h('div', null, h('h2', null, 'Good evening'), h('p', { class: 'muted' }, 'Here is how everyone is doing.'))),
+          h('div', { class: 'notice notice-warn' }, icon('bellOff'),
+            h('p', null, 'Reminders are off. Turn them on to be told when the next dose is allowed.'),
+            h('a', { class: 'btn btn-secondary', href: '#' }, 'Turn on')),
+          kidCard('Ari', 'blue', '3 years, 2 months', [
+            status('ok', 'tick', 'Paracetamol: OK to give', 'Last dose 5 h ago'),
+            status('soon', 'clock', 'Ibuprofen: wait 1 h 20 min', 'Next from 9:40 pm', 0.62),
+          ]),
+          kidCard('Mia', 'pink', '8 months', [
+            status('limit', 'stop', 'Paracetamol: 24-hour limit reached', 'Next from 2:15 am'),
+            status('none', 'dash', 'Ibuprofen: no doses yet', ''),
+          ]),
+          h('p', { class: 'muted small center' }, 'Write down what you give as well, in case your phone is not with you.')),
+      }),
+
+      amount: () => ({
+        title: 'How much?', tab: 'home', back: '#',
+        node: h('div', { class: 'stack' },
+          h('div', { class: 'product-banner' }, h('strong', null, 'Nurofen for Children'), h('span', { class: 'small' }, 'Ibuprofen 100 mg per 5 mL, strawberry')),
+          h('div', { class: 'field' },
+            h('label', { class: 'label' }, 'Amount from the label or your doctor'),
+            h('div', { class: 'stepper' },
+              h('button', { class: 'btn btn-secondary btn-square', type: 'button', 'aria-label': 'Less' }, icon('minus')),
+              h('input', { class: 'input input-amount', value: '3.5', readonly: true }),
+              h('span', { class: 'unit' }, 'mL'),
+              h('button', { class: 'btn btn-secondary btn-square', type: 'button', 'aria-label': 'More' }, icon('plus')))),
+          h('p', { class: 'mg-line' }, '3.5 mL = 70 mg ibuprofen'),
+          syringe(3.5),
+          h('fieldset', { class: 'field' }, h('legend', { class: 'label' }, 'When was it given?'),
+            h('div', { class: 'segmented' },
+              h('label', null, h('input', { type: 'radio', name: 'w', checked: true }), 'Just now'),
+              h('label', null, h('input', { type: 'radio', name: 'w' }), 'Earlier'))),
+          h('button', { class: 'btn btn-primary btn-big', type: 'button' }, 'Continue')),
+      }),
+
+      stop: () => ({
+        title: 'Too soon', tab: 'home', back: '#',
+        node: h('div', { class: 'stack stop stop-soon' },
+          h('div', { class: 'stop-head', role: 'alert' },
+            h('span', { class: 'stop-icon' }, icon('clock')),
+            h('p', { class: 'stop-big' }, 'Don’t give ibuprofen yet')),
+          h('p', null, 'Ari had ibuprofen at 3:40 pm, 2 h 20 min ago.'),
+          h('p', null, 'The next dose can be given from 9:40 pm.'),
+          h('div', { class: 'actions' },
+            h('a', { class: 'btn btn-primary btn-big', href: '#' }, 'Don’t give it now'),
+            h('button', { class: 'btn btn-secondary', type: 'button' }, icon('bell'), 'Remind me at 9:40 pm'),
+            h('p', { class: 'small muted' }, 'Only if one of these is true:'),
+            h('button', { class: 'btn btn-quiet', type: 'button' }, 'A doctor told me to give it now'),
+            h('button', { class: 'btn btn-quiet', type: 'button' }, 'It has already been given: record it')),
+          h('a', { class: 'btn btn-quiet', href: '#' }, icon('phone'), 'Unsure? Call Healthline 0800 611 116')),
+      }),
+
+      confirm: () => ({
+        title: 'Check and log', tab: 'home', back: '#',
+        node: h('div', { class: 'stack' },
+          h('div', { class: 'confirm-card kid-blue' },
+            h('div', { class: 'confirm-who' }, h('span', { class: 'avatar', 'aria-hidden': 'true' }, 'A'), h('strong', null, 'Ari')),
+            h('p', { class: 'confirm-amount' }, '3.5 mL'),
+            syringe(3.5),
+            h('dl', { class: 'facts' },
+              h('dt', null, 'Medicine'), h('dd', null, 'Nurofen for Children'),
+              h('dt', null, 'Strength'), h('dd', null, '100 mg per 5 mL ibuprofen'),
+              h('dt', null, 'That is'), h('dd', null, '70 mg ibuprofen'),
+              h('dt', null, 'Time'), h('dd', null, 'Now (7:20 pm)'))),
+          h('div', { class: 'field' }, h('label', { class: 'label' }, 'Given by'), h('input', { class: 'input', value: 'Fraser', readonly: true })),
+          h('button', { class: 'btn btn-primary btn-big', type: 'button' }, icon('tick'), 'Log this dose'),
+          h('a', { class: 'btn btn-secondary', href: '#' }, 'Change something')),
+      }),
+
+      /* "Dose now" concepts. ?state=ready|wait|limit drives B. */
+      nightA: () => ({
+        title: 'Ari', tab: 'home', back: '#',
+        node: h('div', { class: 'stack' },
+          who(),
+          h('div', { class: 'dose-stack' },
+            doseBtn('ready', 'Paracetamol', 'OK to give', 'Last dose 5 h ago'),
+            doseBtn('wait', 'Ibuprofen', null, 'Allowed from 9:40 pm', { secs: 80 * 60 + 14, total: 6 * 3600 })),
+          below(), h('p', { class: 'note-line' }, 'Tap a medicine to give a dose. It checks the time first.')),
+      }),
+
+      nightB: () => {
+        const st = q.get('state') || 'wait';
+        const D = { wait: 'dose-wait', ready: 'dose-ready', limit: 'dose-limit' };
+        const cfg = {
+          // both medicines still waiting, gap = the earliest allowed
+          wait: { cls: D.wait, icon: 'clock', label: 'Next dose allowed in', down: 80 * 60 + 14, total: 4 * 3600, line: 'Paracetamol, from 9:40 pm',
+            chips: [['wait', 'clock', 'Paracetamol', 'down', 80 * 60 + 14], ['wait', 'clock', 'Ibuprofen', 'down', 200 * 60 + 14]] },
+          // past the earliest allowed time, before the parent's own 5 h gap is up
+          early: { cls: D.wait, icon: 'clock', label: 'Your 5 h gap is up in', down: 40 * 60, total: 5 * 3600, line: 'A dose is allowed now if needed',
+            chips: [['ready', 'tick', 'Paracetamol allowed', null], ['wait', 'clock', 'Ibuprofen', 'down', 160 * 60]] },
+          // the gap is up: count up from the moment it was allowed
+          ready: { cls: D.ready, icon: 'tick', label: 'Allowed for', up: 23 * 60 + 10, line: 'Paracetamol, since 9:20 pm',
+            chips: [['ready', 'tick', 'Paracetamol OK', null], ['wait', 'clock', 'Ibuprofen', 'down', 80 * 60 + 14]] },
+          limit: { cls: D.limit, icon: 'stop', line: 'Paracetamol limit reached. Next from 2:15 am',
+            chips: [['limit', 'stop', 'Paracetamol limit', null], ['ready', 'tick', 'Ibuprofen OK', null]] },
+        }[st];
+        const num = cfg.down ? h('span', { class: 'dose-count cd', 'data-secs': cfg.down }, fmt(cfg.down))
+          : cfg.up ? h('span', { class: 'dose-count cu', 'data-secs': cfg.up }, fmt(cfg.up)) : null;
+        return {
+          title: 'Ari', tab: 'home', back: '#',
+          node: h('div', { class: 'stack' },
+            who(),
+            h('a', { class: `dose-hero ${cfg.cls}`, href: '#' },
+              h('span', { class: 'dose-face' }, icon(cfg.icon)),
+              h('span', { class: 'dose-title' }, 'Dose now'),
+              cfg.label ? h('span', { class: 'dose-label' }, cfg.label) : null,
+              num,
+              h('span', { class: 'dose-line' }, cfg.line),
+              cfg.down ? h('span', { class: 'dose-bar' }, h('i', { style: `width:${Math.round((1 - cfg.down / cfg.total) * 100)}%` })) : null),
+            h('div', { class: 'chips' }, cfg.chips.map(([k, ic, label, mode, secs]) =>
+              h('span', { class: `dose-chip dose-${k}` }, icon(ic), label, mode ? h('b', { class: 'cd', 'data-secs': secs }, fmt(secs)) : null))),
+            below(true), h('p', { class: 'note-line' }, 'Dose now asks which medicine, and checks the time first.')),
+        };
+      },
+
+      gap: () => {
+        const opts = (list, on) => h('div', { class: 'gap-chips', role: 'radiogroup' }, list.map(([t, tag]) =>
+          h('button', { class: 'gap-chip', type: 'button', role: 'radio', 'aria-checked': String(t === on) }, h('span', null, t), tag ? h('small', null, tag) : null)));
+        const card = (name, list, on, hint) => h('section', { class: 'card gap-card' },
+          h('div', { class: 'gap-head' }, h('h3', null, name), h('span', { class: 'gap-now' }, on)),
+          opts(list, on),
+          h('p', { class: 'small gap-hint' }, hint));
+        return {
+          title: 'Time between doses', tab: 'home', back: '#',
+          node: h('div', { class: 'stack' },
+            who(),
+            h('p', null, 'Choose how long you would like to wait between doses. The countdown on Dose now counts to this time.'),
+            card('Paracetamol', [['4 h', 'earliest'], ['4½ h'], ['5 h'], ['5½ h'], ['6 h', 'top']], '5 h', '4 h is the earliest allowed and 6 h is the top of the usual range.'),
+            card('Ibuprofen', [['6 h', 'earliest'], ['6½ h'], ['7 h'], ['7½ h'], ['8 h', 'top']], '6 h', '6 h is the earliest allowed and 8 h is the top of the usual range.'),
+            h('p', { class: 'note-line' }, 'You can always give a dose from the earliest time if you need to. Your choice only changes when the countdown ends and when reminders come.'),
+            h('button', { class: 'btn btn-primary btn-big', type: 'button' }, icon('tick'), 'Save')),
+        };
+      },
+
+      history: () => ({
+        title: 'Ari', tab: 'home', back: '#',
+        node: h('div', { class: 'stack' },
+          h('div', { class: 'notice notice-undo' }, h('p', null, 'Logged Pamol for Ari at 4:10 pm.'), h('button', { class: 'btn btn-secondary', type: 'button' }, icon('undo'), 'Undo')),
+          h('div', { class: 'timeline' },
+            h('h3', { class: 'tl-day' }, 'Today'),
+            h('ul', { class: 'tl-list' },
+              h('li', { class: 'tl-item tl-dose' }, h('a', { class: 'tl-link', href: '#' }, h('span', { class: 'tl-time' }, '4:10 pm'),
+                h('span', { class: 'tl-main' }, h('strong', null, '5 mL Pamol'), h('span', { class: 'small' }, '120 mg paracetamol · Fraser'))),),
+              h('li', { class: 'tl-item tl-dose' }, h('a', { class: 'tl-link', href: '#' }, h('span', { class: 'tl-time' }, '3:40 pm'),
+                h('span', { class: 'tl-main' }, h('strong', null, '3.5 mL Nurofen for Children'), h('span', { class: 'small' }, '70 mg ibuprofen · Sam'), h('span', { class: 'badge' }, 'Doctor advised')))),
+              h('li', { class: 'tl-item tl-symptom' }, h('span', { class: 'tl-time' }, '3:20 pm'),
+                h('span', { class: 'tl-main' }, h('strong', null, '38.6 °C'), h('span', { class: 'small' }, 'Tired, not eating much'), h('span', { class: 'small muted' }, 'Sam')))),
+            h('h3', { class: 'tl-day' }, 'Yesterday'),
+            h('ul', { class: 'tl-list' },
+              h('li', { class: 'tl-item tl-dose' }, h('a', { class: 'tl-link', href: '#' }, h('span', { class: 'tl-time' }, '9:05 pm'),
+                h('span', { class: 'tl-main' }, h('strong', null, '5 mL Pamol'), h('span', { class: 'small' }, '120 mg paracetamol · Fraser')))))),
+          h('button', { class: 'btn btn-secondary', type: 'button' }, icon('share'), 'Share a summary')),
+      }),
+    };
+
+    const s = (screens[screen] || screens.home)();
+    document.getElementById('topbar').replaceChildren(
+      s.back ? h('a', { class: 'iconbtn', href: '#', 'aria-label': 'Back' }, icon('back')) : h('span', { class: 'iconbtn-space' }),
+      h('h1', null, s.title),
+      h('a', { class: 'iconbtn call', href: '#', 'aria-label': 'Call Healthline' }, icon('phone')));
+    document.getElementById('view').replaceChildren(s.node);
+    for (const a of document.querySelectorAll('#tabs a')) a.classList.toggle('on', a.dataset.tab === s.tab);
+  </script>
+</body>
+</html>

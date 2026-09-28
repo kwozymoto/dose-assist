@@ -1,0 +1,139 @@
+/* Option B: Playground. Bolder candy pastels, sticker-style outlines,
+   squishy buttons that press down, a coloured-pencil backdrop. Fredoka for
+   headings and buttons, Nunito for reading text. The most playful of the
+   three. */
+
+@font-face { font-family: "Fredoka"; font-style: normal; font-weight: 300 700; font-display: swap; src: url("../fonts/fredoka-latin-wght-normal.woff2") format("woff2"); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: "Fredoka"; font-style: normal; font-weight: 300 700; font-display: swap; src: url("../fonts/fredoka-latin-ext-wght-normal.woff2") format("woff2"); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: "Nunito"; font-style: normal; font-weight: 200 1000; font-display: swap; src: url("../fonts/nunito-latin-wght-normal.woff2") format("woff2"); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: "Nunito"; font-style: normal; font-weight: 200 1000; font-display: swap; src: url("../fonts/nunito-latin-ext-wght-normal.woff2") format("woff2"); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+
+:root,
+[data-theme="light"] {
+  --bg: #fff8ec;
+  --surface: #ffffff;
+  --surface-2: #f3ecff;
+  --text: #2a2250;
+  --muted: #5b5385;
+  --line: #e4dbf6;
+  --primary: #7fbbff;
+  --primary-text: #0f2550;
+  --link: #2a4fb5;
+  --focus: #b84700;
+  --ok: #17693c;
+  --ok-bg: #c8f1d6;
+  --soon: #774900;
+  --soon-bg: #ffe38a;
+  --stop: #9c1d4f;
+  --stop-bg: #ffcde0;
+  --none: #57527f;
+  --none-bg: #eeeaf9;
+  --warn-bg: #ffe9a8;
+  --warn-text: #553d00;
+  --test-bg: #e3d5ff;
+  --test-text: #40218a;
+  --danger: #b0204f;
+  --danger-text: #ffffff;
+  --kid-teal: #86e5d2;
+  --kid-orange: #ffb98a;
+  --kid-purple: #c9a8ff;
+  --kid-blue: #8ec4ff;
+  --kid-pink: #ffa9cb;
+  --kid-green: #a8e67e;
+  --on-kid: #2a2250;
+  --edge: #8b7fd0;
+  --btn-edge: #4b85d8;
+  --mascot-edge: #2a2250;
+  --sparkle: #ffb020;
+
+  --font-head: "Fredoka", "Nunito", system-ui, sans-serif;
+  --font-body: "Nunito", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --r-card: 26px; --r-row: 20px; --r-input: 18px; --r-btn: 24px; --r-chip: 999px; --r-dock: 28px; --r-avatar: 58% 42% 55% 45% / 50% 55% 45% 50%;
+  --card-border: 3px solid var(--edge); --choice-border: 2.5px solid var(--edge); --btn-border: 3px; --kid-tint: 30%; --press: 4px;
+  --shadow: 0 5px 0 var(--edge);
+  --dock-shadow: 0 5px 0 var(--edge);
+  --btn-shadow: 0 5px 0 var(--btn-edge);
+  --btn-shadow-pressed: 0 1px 0 var(--btn-edge);
+  --avatar-shadow: 0 0 0 0 transparent;
+}
+
+[data-theme="dark"] {
+  --bg: #1c1737;
+  --surface: #2a2352;
+  --surface-2: #382f68;
+  --text: #fbf8ff;
+  --muted: #c6bfe8;
+  --line: #453d7c;
+  --primary: #7fbbff;
+  --primary-text: #0f2550;
+  --link: #a8cbff;
+  --focus: #ffbb66;
+  --ok: #9ce8b6;
+  --ok-bg: #1d3b30;
+  --soon: #ffdc7a;
+  --soon-bg: #423616;
+  --stop: #ffa8c4;
+  --stop-bg: #46203a;
+  --none: #c6bfe8;
+  --none-bg: #382f68;
+  --warn-bg: #423616;
+  --warn-text: #ffe9a6;
+  --test-bg: #3a2c6e;
+  --test-text: #e2d3ff;
+  --danger: #ff9dbd;
+  --danger-text: #2c0d1a;
+  --kid-teal: #86e5d2;
+  --kid-orange: #ffb98a;
+  --kid-purple: #c9a8ff;
+  --kid-blue: #8ec4ff;
+  --kid-pink: #ffa9cb;
+  --kid-green: #a8e67e;
+  --on-kid: #2a2250;
+  --edge: #7568c4;
+  --btn-edge: #3d6fc4;
+  --mascot-edge: #fbf8ff;
+  --sparkle: #ffdc7a;
+}
+
+/* Coloured-pencil shading: one colour across the whole page, drawn as
+   diagonal hatch strokes (the SVG is a mask, --wash is the pencil colour).
+   Pages for one child take that child's colour via data-kid on <html>. */
+:root { --wash: var(--kid-purple); --wash-opacity: 0.5; }
+[data-theme="dark"] { --wash-opacity: 0.26; }
+[data-kid="blue"] { --wash: var(--kid-blue); }
+[data-kid="pink"] { --wash: var(--kid-pink); }
+[data-kid="green"] { --wash: var(--kid-green); }
+[data-kid="teal"] { --wash: var(--kid-teal); }
+[data-kid="orange"] { --wash: var(--kid-orange); }
+[data-kid="purple"] { --wash: var(--kid-purple); }
+body::before {
+  background: var(--wash); opacity: var(--wash-opacity);
+  -webkit-mask: url("pencil.svg") center top / cover no-repeat;
+  mask: url("pencil.svg") center top / cover no-repeat;
+}
+
+.hello h2 { font-weight: 700; }
+.topbar h1 { font-weight: 700; }
+.kid-name, .stop-big, .confirm-amount, .strength { font-weight: 700; }
+.btn { font-weight: 600; letter-spacing: 0.01em; }
+
+/* Status rows read like stickers. */
+.status { border-width: 2.5px; }
+.status-ok { border-color: var(--ok); }
+.status-soon { border-color: var(--soon); }
+.status-limit, .status-blocked, .status-exceeds { border-color: var(--stop); }
+.status-none { border-color: var(--none); }
+
+.btn-secondary { border-color: var(--edge); box-shadow: 0 4px 0 var(--edge); }
+.btn-secondary:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--edge); }
+.btn-quiet { box-shadow: none; }
+.iconbtn { border: 2.5px solid var(--edge); box-shadow: 0 3px 0 var(--edge); }
+.input { border-color: var(--edge); }
+.tabs a.on { outline: 2.5px solid var(--edge); background: color-mix(in srgb, var(--primary) 40%, var(--surface)); }
+.avatar { border: 3px solid var(--edge); box-shadow: none; }
+.confirm-card { border-color: var(--edge); box-shadow: 0 5px 0 var(--edge); }
+.stop-head { box-shadow: 0 5px 0 currentColor; }
+.stop-soon .stop-head { box-shadow: 0 5px 0 var(--soon); }
+.stop-limit .stop-head, .stop-blocked .stop-head { box-shadow: 0 5px 0 var(--stop); }
+.done-head { box-shadow: 0 5px 0 var(--ok); }
+.dialog { border: 3px solid var(--edge); box-shadow: 0 6px 0 var(--edge); }
