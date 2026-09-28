@@ -1,0 +1,19 @@
+{
+  "name": "dose-assist",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Track children's medicine doses and get reminders when the next dose is allowed. A static PWA: no build step, no framework.",
+  "scripts": {
+    "check": "node tools/check_all.mjs",
+    "test": "node --test --test-reporter=spec \"tests/**/*.test.mjs\"",
+    "test:engine": "node --test --experimental-test-coverage --test-coverage-include=\"js/engine/**\" --test-coverage-lines=95 --test-coverage-branches=95 --test-coverage-functions=95 \"tests/engine/*.test.mjs\"",
+    "typecheck": "tsc -p jsconfig.json",
+    "serve": "python -m http.server 8741"
+  },
+  "devDependencies": {
+    "fake-indexeddb": "^6.0.0",
+    "fast-check": "^4.0.0",
+    "typescript": "^5.9.0"
+  }
+}

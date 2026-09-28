@@ -1,0 +1,51 @@
+{
+  "rulesVersion": "2026.10.0",
+  "reviewedBy": null,
+  "reviewedAt": null,
+  "ingredients": {
+    "paracetamol": {
+      "mgPerKg": 15,
+      "minIntervalMinutes": 240,
+      "maxDosesPer24h": 4,
+      "maxMgPerKgPer24h": 60,
+      "maxSingleMg": 1000,
+      "maxMgPer24h": 4000,
+      "minAgeDays": 90,
+      "seekAdviceAfterHours": 48,
+      "unverified": [],
+      "reviewNotes": [
+        "bpacnz gives every 4 to 6 hours; KidsHealth and Healthify give at least 4 hours. 4 hours is used.",
+        "bpacnz: significantly underweight or malnourished children may need 10 mg/kg or longer gaps. The app shows a prompt; it does not change the numbers."
+      ],
+      "sources": [
+        { "name": "KidsHealth NZ: Safe use of paracetamol in children", "url": "https://www.kidshealth.org.nz/safe-use-of-paracetamol-in-children", "checkedAt": "2026-09-28", "supports": ["minIntervalMinutes", "maxDosesPer24h", "minAgeDays", "seekAdviceAfterHours"] },
+        { "name": "Healthify: Paracetamol for children", "url": "https://healthify.nz/medicines-a-z/p/paracetamol-children", "checkedAt": "2026-09-28", "supports": ["minIntervalMinutes", "maxDosesPer24h", "minAgeDays", "seekAdviceAfterHours"] },
+        { "name": "bpacnz: Paracetamol dosing for children in primary care (2018)", "url": "https://bpac.org.nz/2018/paracetamol.aspx", "checkedAt": "2026-09-28", "supports": ["mgPerKg", "maxMgPerKgPer24h", "maxSingleMg", "maxMgPer24h", "maxDosesPer24h"] }
+      ]
+    },
+    "ibuprofen": {
+      "mgPerKg": 10,
+      "minIntervalMinutes": 360,
+      "maxDosesPer24h": 3,
+      "maxMgPerKgPer24h": 30,
+      "maxSingleMg": 400,
+      "maxMgPer24h": 1200,
+      "minAgeDays": 90,
+      "minWeightKg": 5,
+      "unverified": ["maxMgPerKgPer24h", "maxMgPer24h", "minWeightKg"],
+      "reviewNotes": [
+        "Healthify's 2026 pages say every 6 to 8 hours, no more than 3 times in 24 hours. Its 2022 ibuprofen page allows 3 or 4 times a day (4 hours apart at 4 times). The newer, more cautious figures are used; the reviewer must decide.",
+        "Interval uses the lower end (6 hours) of the 6 to 8 hour range.",
+        "maxMgPer24h (1200) and maxMgPerKgPer24h (30) are 3 doses at the stated per-dose maxima; no source states them directly.",
+        "minWeightKg (5) comes from PLAN.md and no source has been found. Unused in tracker mode.",
+        "mgPerKg: Healthify gives 5 to 10 mg/kg; its calculator uses 6 mg/kg per National HealthPathways. Unused in tracker mode.",
+        "NZ Formulary for Children not yet checked: it requires accepting licence terms."
+      ],
+      "sources": [
+        { "name": "Healthify: Ibuprofen paediatric dose calculator (reviewed April 2026)", "url": "https://healthify.nz/tools/i/ibuprofen-paediatric-dose-calculator", "checkedAt": "2026-09-28", "supports": ["mgPerKg", "minIntervalMinutes", "maxDosesPer24h", "maxSingleMg", "minAgeDays"] },
+        { "name": "Healthify: Pain relief medicines for children (reviewed April 2026)", "url": "https://healthify.nz/medicines-a-z/p/pain-relief-medicines-for-children", "checkedAt": "2026-09-28", "supports": ["minIntervalMinutes", "maxDosesPer24h"] },
+        { "name": "Healthify: Ibuprofen for children (reviewed 2022)", "url": "https://healthify.nz/medicines-a-z/i/ibuprofen-children", "checkedAt": "2026-09-28", "supports": ["minAgeDays"] }
+      ]
+    }
+  }
+}

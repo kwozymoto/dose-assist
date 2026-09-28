@@ -1,0 +1,64 @@
+{
+  "productsVersion": "2026.10.0",
+  "reviewedBy": null,
+  "reviewedAt": null,
+  "note": "Seed list from PLAN.md 5.6. Every product and strength must be checked against Medsafe before release: brands change and temporary strengths appear during shortages. The generic strengths are confirmed by Healthify; the brand names are not yet checked.",
+  "products": [
+    {
+      "id": "pamol-250-5",
+      "name": "Pamol oral suspension",
+      "form": "liquid",
+      "components": [{ "ingredient": "paracetamol", "strengthMg": 250, "strengthPer": 5 }],
+      "verified": false,
+      "sources": []
+    },
+    {
+      "id": "paracetamol-120-5",
+      "name": "Paracetamol liquid",
+      "form": "liquid",
+      "components": [{ "ingredient": "paracetamol", "strengthMg": 120, "strengthPer": 5 }],
+      "verified": true,
+      "sources": [{ "name": "Healthify: Paracetamol for children", "url": "https://healthify.nz/medicines-a-z/p/paracetamol-children", "checkedAt": "2026-09-28" }]
+    },
+    {
+      "id": "paracetamol-250-5",
+      "name": "Paracetamol liquid",
+      "form": "liquid",
+      "components": [{ "ingredient": "paracetamol", "strengthMg": 250, "strengthPer": 5 }],
+      "verified": true,
+      "sources": [{ "name": "Healthify: Paracetamol for children", "url": "https://healthify.nz/medicines-a-z/p/paracetamol-children", "checkedAt": "2026-09-28" }]
+    },
+    {
+      "id": "nurofen-children-100-5",
+      "name": "Nurofen for Children",
+      "form": "liquid",
+      "components": [{ "ingredient": "ibuprofen", "strengthMg": 100, "strengthPer": 5 }],
+      "verified": false,
+      "sources": []
+    },
+    {
+      "id": "fenpaed-100-5",
+      "name": "Fenpaed",
+      "form": "liquid",
+      "components": [{ "ingredient": "ibuprofen", "strengthMg": 100, "strengthPer": 5 }],
+      "verified": false,
+      "sources": []
+    },
+    {
+      "id": "ibuprofen-100-5",
+      "name": "Ibuprofen liquid",
+      "form": "liquid",
+      "components": [{ "ingredient": "ibuprofen", "strengthMg": 100, "strengthPer": 5 }],
+      "verified": true,
+      "sources": [{ "name": "Healthify: Ibuprofen for children", "url": "https://healthify.nz/medicines-a-z/i/ibuprofen-children", "checkedAt": "2026-09-28" }]
+    },
+    {
+      "id": "ibuprofen-200-5",
+      "name": "Ibuprofen liquid",
+      "form": "liquid",
+      "components": [{ "ingredient": "ibuprofen", "strengthMg": 200, "strengthPer": 5 }],
+      "verified": true,
+      "sources": [{ "name": "Healthify: Ibuprofen for children", "url": "https://healthify.nz/medicines-a-z/i/ibuprofen-children", "checkedAt": "2026-09-28" }]
+    }
+  ]
+}
