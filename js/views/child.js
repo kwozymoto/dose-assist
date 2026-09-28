@@ -9,6 +9,7 @@ import { state, childRows, ageText, CHILD_COLOURS } from '../state.js';
 import { now, timeZone } from '../clock.js';
 import { formatWhen, formatTime, formatDate, formatAmount, formatMg, toLocalInput } from '../format.js';
 import { statusRow } from './home.js';
+import { doseNow } from './dosenow.js';
 import { refreshReminders } from '../reminders.js';
 import { DAY_MS } from '../engine/time.js';
 
@@ -45,19 +46,21 @@ export async function childDetail(ctx) {
 
   const facts = [ageText(child.dateOfBirth, t), weight ? `${weight.kg} kg (${formatDate(weight.recordedAt, tz)})` : null].filter(Boolean).join(' · ');
 
+  const dose = doseNow(child, rows, ctx);
   const node = h('div', { class: 'stack' },
     h('div', { class: `kid-head kid-${child.colour}` },
       h('span', { class: 'avatar', 'aria-hidden': 'true' }, child.name.slice(0, 1).toUpperCase()),
       h('span', { class: 'kid-name' }, h('span', null, child.name), facts ? h('span', { class: 'muted small' }, facts) : null),
     ),
     child.notes ? h('p', { class: 'notice' }, child.notes) : null,
+    dose.node,
+    rows.length ? h('h2', null, 'Each medicine') : null,
     h('ul', { class: 'rows' }, rows.map((r) => statusRow(r.card))),
-    h('a', { class: 'btn btn-primary btn-big', href: `#/give?child=${child.id}` }, icon('plus'), `Give ${child.name} a dose`),
     h('div', { class: 'button-row' },
       h('a', { class: 'btn btn-secondary', href: `#/child/${child.id}/symptom` }, icon('thermo'), 'Temperature or symptom'),
       h('a', { class: 'btn btn-secondary', href: `#/child/${child.id}/summary` }, icon('share'), 'Share a summary'),
     ),
-    h('h2', null, 'Timeline'),
+    h('h2', { id: 'timeline', tabindex: '-1' }, 'Timeline'),
     timeline(all.filter((d) => showDeleted || !d.deletedAt), syms, t, tz),
     deletedCount > 0
       ? h('a', { class: 'btn btn-quiet', href: `#/child/${child.id}${showDeleted ? '' : '?deleted=1'}` }, showDeleted ? 'Hide deleted doses' : `Show deleted doses (${deletedCount})`)
@@ -66,7 +69,7 @@ export async function childDetail(ctx) {
       h('a', { class: 'btn btn-secondary', href: `#/child/${child.id}/edit` }, 'Edit details'),
     ),
   );
-  return { title: child.name, back: '/', node, tab: 'home', refreshEvery: 30000 };
+  return { title: child.name, back: '/', node, tab: 'home', refreshEvery: 30000, cleanup: dose.cleanup };
 }
 
 /**

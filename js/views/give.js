@@ -67,7 +67,7 @@ export async function give(ctx) {
   if (!child) { ctx.go('/give', { replace: true }); return { title: 'Give a dose', node: h('div') }; }
 
   const bottleId = q.get('bottle');
-  if (!bottleId) return pickBottle(child, q.get('ingredients'));
+  if (!bottleId) return pickBottle(child, q.get('ingredients'), q.get('when') === 'earlier');
   const bottle = await db.bottles.get(bottleId);
   if (!bottle) { ctx.go(`/give?child=${child.id}`, { replace: true }); return { title: 'Give a dose', node: h('div') }; }
 
@@ -107,7 +107,7 @@ function pickChild(kids) {
 /* ---------------- step 2: bottle ---------------- */
 
 /** @param {Child} child @param {string | null} ingredientsParam @returns {Promise<Screen>} */
-async function pickBottle(child, ingredientsParam) {
+async function pickBottle(child, ingredientsParam, earlier = false) {
   const all = await db.bottles.list();
   const want = ingredientsParam ? ingredientsParam.split(',') : null;
   const list = want ? all.filter((b) => ingredientsOf(b).some((i) => want.includes(i))) : all;
@@ -126,7 +126,7 @@ async function pickBottle(child, ingredientsParam) {
       const s = bottleStatus(child, b, history);
       const summary = productLine(s, b, t, tz);
       return h('li', null,
-        h('a', { class: `choice choice-${summary.kind}`, href: `#/give?child=${child.id}&bottle=${b.id}` },
+        h('a', { class: `choice choice-${summary.kind}`, href: `#/give?child=${child.id}&bottle=${b.id}${earlier ? '&when=earlier' : ''}` },
           h('span', { class: 'status-icon' }, icon(summary.icon)),
           h('span', { class: 'choice-main' },
             h('strong', null, b.name),
@@ -192,10 +192,11 @@ async function amountStep(ctx, child, bottle, base) {
     update();
   };
 
-  // When was it given?
+  // When was it given? "Add an earlier dose" arrives here with ?when=earlier.
+  const earlierFirst = ctx.query.get('when') === 'earlier';
   const earliest = t - BACKDATE_MAX_MS;
-  const whenNow = /** @type {HTMLInputElement} */ (h('input', { type: 'radio', name: 'when', id: 'when-now', value: 'now', checked: !keep || keep.givenAt === null }));
-  const whenEarlier = /** @type {HTMLInputElement} */ (h('input', { type: 'radio', name: 'when', id: 'when-earlier', value: 'earlier', checked: !!keep && keep.givenAt !== null }));
+  const whenNow = /** @type {HTMLInputElement} */ (h('input', { type: 'radio', name: 'when', id: 'when-now', value: 'now', checked: keep ? keep.givenAt === null : !earlierFirst }));
+  const whenEarlier = /** @type {HTMLInputElement} */ (h('input', { type: 'radio', name: 'when', id: 'when-earlier', value: 'earlier', checked: keep ? keep.givenAt !== null : earlierFirst }));
   const at = /** @type {HTMLInputElement} */ (h('input', {
     class: 'input', type: 'datetime-local', id: 'given-at',
     min: toLocalInput(earliest, tz), max: toLocalInput(t, tz),

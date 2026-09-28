@@ -123,3 +123,41 @@ test('listNames', () => {
   assert.equal(listNames(['a', 'b']), 'a and b');
   assert.equal(listNames(['a', 'b', 'c']), 'a, b and c');
 });
+
+describe('next_allowed with the parent\'s own gap', () => {
+  const ALPHA = { ...RULES.ingredients.alpha, usualIntervalMaxMinutes: 360 };
+  const RANGED = { ...RULES, ingredients: { ...RULES.ingredients, alpha: ALPHA } };
+  const withGap = (gap) => ({ ...child, gapMinutes: { alpha: gap } });
+  const planWith = (kid, doses, rules = RANGED) => planNotices({ reminders: [rem()], children: [kid], doses, rules, timeZone: TZ });
+
+  test('a longer gap moves the reminder to the end of that gap', () => {
+    const [n] = planWith(withGap(330), [dose('alpha', HOUR)]);
+    assert.equal(n.fireAt, NOW - HOUR + 330 * MIN);
+  });
+
+  test('no gap chosen: the rules\' time, as before', () => {
+    const [n] = planWith(child, [dose('alpha', HOUR)]);
+    assert.equal(n.fireAt, NOW - HOUR + 240 * MIN);
+  });
+
+  test('a gap outside the range is clamped, so it can neither shorten nor stretch past the range', () => {
+    assert.equal(planWith(withGap(10), [dose('alpha', HOUR)])[0].fireAt, NOW - HOUR + 240 * MIN);
+    assert.equal(planWith(withGap(99999), [dose('alpha', HOUR)])[0].fireAt, NOW - HOUR + 360 * MIN);
+  });
+
+  test('rules with no range ignore a stored gap', () => {
+    const [n] = planWith(withGap(330), [dose('alpha', HOUR)], RULES);
+    assert.equal(n.fireAt, NOW - HOUR + 240 * MIN);
+  });
+
+  test('a 24 h limit that ends after the gap still wins', () => {
+    const doses = [dose('alpha', 20 * HOUR), dose('alpha', 15 * HOUR), dose('alpha', 10 * HOUR), dose('alpha', HOUR)];
+    const [n] = planWith(withGap(240), doses);
+    assert.equal(n.fireAt, NOW - 20 * HOUR + 24 * HOUR);
+  });
+
+  test('the wording still says allowed, never give', () => {
+    const [n] = planWith(withGap(330), [dose('alpha', HOUR)]);
+    assert.doesNotMatch(n.title + n.body, /\bgive (mia|her|him|them)\b/i);
+  });
+});

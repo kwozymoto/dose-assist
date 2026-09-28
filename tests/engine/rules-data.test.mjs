@@ -6,7 +6,10 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { checkIngredient } from '../../js/engine/checkDose.js';
+import { gapChoices, clampGap, planGap } from '../../js/engine/gap.js';
 import { NOW, MIN, DAY, TZ } from './fixtures.mjs';
+
+const choices = gapChoices;
 
 const RULES = JSON.parse(readFileSync(new URL('../../data/rules.json', import.meta.url), 'utf8'));
 const CHILD = { id: 'c', dateOfBirth: '2020-01-01' };
@@ -50,6 +53,22 @@ for (const [name, rule] of Object.entries(RULES.ingredients)) {
       const dob = (days) => new Date(today - days * DAY).toISOString().slice(0, 10);
       assert.equal(base([], { child: { id: 'b', dateOfBirth: dob(rule.minAgeDays - 1) } }).status, 'BLOCKED');
       assert.equal(base([], { child: { id: 'b', dateOfBirth: dob(rule.minAgeDays) } }).status, 'OK');
+    });
+
+    test('the range a parent picks from never starts below the minimum, and the top is a real choice', () => {
+      const choices = gapChoices(rule);
+      assert.equal(choices[0], rule.minIntervalMinutes);
+      assert.equal(choices.at(-1), Math.max(rule.minIntervalMinutes, rule.usualIntervalMaxMinutes ?? 0));
+      for (const c of choices) assert.ok(c >= rule.minIntervalMinutes);
+      assert.equal(clampGap(rule, 1), rule.minIntervalMinutes);
+      assert.equal(clampGap(rule, 1e9), choices.at(-1));
+    });
+
+    test('a chosen gap never lets a dose through before the minimum interval', () => {
+      const longest = choices(rule).at(-1);
+      const p = planGap({ check: base([at(NOW - interval + MIN)]), rule, gapMinutes: longest, now: NOW });
+      assert.equal(p.phase, 'wait');
+      assert.ok(p.targetAt >= NOW - interval + MIN + interval);
     });
 
     test('unreviewed rules say so', () => {

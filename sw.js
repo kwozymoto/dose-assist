@@ -8,7 +8,7 @@
    if SHELL names a file that does not exist, or if a shell file changed
    since git HEAD without VERSION changing. */
 
-const VERSION = 'v5';
+const VERSION = 'v6';
 const CACHE = `dose-assist-${VERSION}`;
 
 const SHELL = [
@@ -42,11 +42,14 @@ const SHELL = [
   'js/engine/age.js',
   'js/engine/amounts.js',
   'js/engine/checkDose.js',
+  'js/engine/gap.js',
   'js/engine/nextAllowed.js',
   'js/engine/time.js',
   'js/engine/types.js',
   'js/views/bottles.js',
   'js/views/child.js',
+  'js/views/dosenow.js',
+  'js/views/gap.js',
   'js/views/dose.js',
   'js/views/give.js',
   'js/views/help.js',

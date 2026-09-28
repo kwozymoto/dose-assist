@@ -4,6 +4,7 @@
 
 import * as db from './db.js';
 import { checkDose, checkIngredient, assertRule } from './engine/checkDose.js';
+import { planGap } from './engine/gap.js';
 import { cardStatus } from './status.js';
 import { now, timeZone } from './clock.js';
 import { DAY_MS } from './engine/time.js';
@@ -69,7 +70,9 @@ export async function childRows(child, bottles) {
   }
   const rows = [...names].sort().map((ingredient) => {
     const check = checkIngredient({ ingredient, rules: state.rules, history, now: t, child: engineChild(child), timeZone: tz });
-    return { ingredient, check, card: cardStatus(check, ingredient, ruleFor(ingredient), t, tz) };
+    const rule = ruleFor(ingredient);
+    const plan = planGap({ check, rule, gapMinutes: child.gapMinutes?.[ingredient], now: t });
+    return { ingredient, check, plan, card: cardStatus(check, ingredient, rule, t, tz, plan) };
   });
   return { rows, history };
 }

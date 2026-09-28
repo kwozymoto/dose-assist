@@ -46,6 +46,7 @@ export const STORES = ['children', 'weights', 'bottles', 'photos', 'doses', 'aud
  * @property {string} colour
  * @property {string | null} dateOfBirth  YYYY-MM-DD
  * @property {string} [notes]
+ * @property {Record<string, number>} [gapMinutes]  the parent's chosen gap between doses, by ingredient; read through clampGap, never trusted as stored
  * @property {number} createdAt
  * @property {number | null} [archivedAt]
  *

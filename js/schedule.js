@@ -12,6 +12,8 @@
    set for a doctor's schedule may say it is time to give one. */
 
 import { checkDose } from './engine/checkDose.js';
+import { clampGap } from './engine/gap.js';
+import { MINUTE_MS } from './engine/time.js';
 import { formatTime, formatWhen } from './format.js';
 
 /** @typedef {import('./db.js').Reminder} Reminder */
@@ -66,10 +68,18 @@ export function planNotices({ reminders, children, doses, rules, timeZone }) {
       // has an answer that does not depend on when we happen to ask it.
       const check = checkDose({ components, rules, history, now: last, child, timeZone });
       if (check.nextAllowedAt === null) continue;
+      // The parent may have chosen a gap longer than the rules' minimum; the
+      // reminder comes when that gap ends. Never earlier than the rules.
+      let fireAt = check.nextAllowedAt;
+      for (const ing of r.ingredients) {
+        const rule = Object.hasOwn(rules.ingredients, ing) ? rules.ingredients[ing] : undefined;
+        const lastOfIng = check.perIngredient[ing]?.lastDose?.givenAt;
+        if (rule && lastOfIng !== undefined) fireAt = Math.max(fireAt, lastOfIng + clampGap(rule, child.gapMinutes?.[ing]) * MINUTE_MS);
+      }
       notice = {
-        reminderId: r.id, childId: child.id, fireAt: check.nextAllowedAt, kind: 'next_allowed', tag: r.id, url, logUrl,
+        reminderId: r.id, childId: child.id, fireAt, kind: 'next_allowed', tag: r.id, url, logUrl,
         title: `${child.name}: next ${names} allowed from now`,
-        body: `Last given ${formatWhen(last, check.nextAllowedAt, timeZone)}. Open Dose Assist to check before giving.`,
+        body: `Last given ${formatWhen(last, fireAt, timeZone)}. Open Dose Assist to check before giving.`,
       };
     } else if (r.kind === 'scheduled' && typeof r.fireAt === 'number') {
       const at = r.fireAt;

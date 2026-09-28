@@ -41,7 +41,7 @@ export function checkEngine() {
 /* check_rules: rules.json and products.json (CLAUDE.md 1, 2, 12).      */
 
 const RULE_FIELDS = ['minIntervalMinutes', 'maxDosesPer24h', 'maxSingleMg', 'maxMgPer24h', 'minAgeDays'];
-const OPTIONAL_FIELDS = ['seekAdviceAfterHours', 'mgPerKg', 'maxMgPerKgPer24h', 'minWeightKg'];
+const OPTIONAL_FIELDS = ['seekAdviceAfterHours', 'usualIntervalMaxMinutes', 'mgPerKg', 'maxMgPerKgPer24h', 'minWeightKg'];
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
 
 export function checkRules() {
@@ -62,6 +62,8 @@ export function checkRules() {
     }
     if (!Number.isInteger(r.maxDosesPer24h)) problems.push(`${name}.maxDosesPer24h must be a whole number`);
     if (r.maxSingleMg > r.maxMgPer24h) problems.push(`${name}: maxSingleMg is more than maxMgPer24h`);
+    // A parent's chosen gap runs from the minimum up to this; a top below the minimum would be a way to shorten it.
+    if ('usualIntervalMaxMinutes' in r && !(r.usualIntervalMaxMinutes >= r.minIntervalMinutes)) problems.push(`${name}: usualIntervalMaxMinutes is less than minIntervalMinutes`);
     if (!Array.isArray(r.sources) || r.sources.length === 0) problems.push(`${name}: no sources`);
     const unverified = new Set(r.unverified ?? []);
     const supported = new Set();

@@ -334,3 +334,66 @@ textarea.input { min-height: 96px; }
   body { background: #fff; color: #000; padding: 0; }
   .summary { border: 0; }
 }
+
+/* ---------- Dose now (a child's page) ----------
+   One big button that counts down to the end of the parent's gap, then up
+   from when a dose was allowed. State by colour AND icon AND words. */
+.dose-now { gap: 12px; }
+.dose-hero {
+  position: relative; overflow: hidden;
+  display: grid; justify-items: center; align-content: center; gap: 6px; text-align: center;
+  min-height: 200px; padding: 22px 18px 28px;
+  border: 3px solid var(--line); border-radius: 20px;
+  color: var(--text); text-decoration: none; box-shadow: var(--shadow);
+}
+.dose-hero:active { transform: translateY(2px); }
+.dose-face { display: grid; place-items: center; width: 68px; height: 68px; border-radius: 50%; background: var(--surface); }
+.dose-face .icon { width: 42px; height: 42px; }
+.dose-title { font-size: 2rem; font-weight: 800; line-height: 1.1; }
+.dose-label { font-size: 1.05rem; font-weight: 700; }
+.dose-count { font-size: 3rem; font-weight: 800; line-height: 1.05; font-variant-numeric: tabular-nums; }
+.dose-line { font-size: 1.05rem; font-weight: 700; max-width: 30ch; }
+.dose-line2 { font-size: 0.95rem; max-width: 34ch; }
+.dose-bar { position: absolute; left: 0; right: 0; bottom: 0; height: 10px; background: color-mix(in srgb, var(--soon) 22%, transparent); }
+.dose-bar i { display: block; height: 100%; background: var(--soon); border-radius: 0 6px 6px 0; }
+
+.dose-ready { background: var(--ok-bg); border-color: var(--ok); }
+.dose-ready .dose-face, .dose-ready .dose-count { color: var(--ok); }
+.dose-wait { background: var(--soon-bg); border-color: var(--soon); }
+.dose-wait .dose-face, .dose-wait .dose-count { color: var(--soon); }
+.dose-limit { background: var(--stop-bg); border-color: var(--stop); }
+.dose-limit .dose-face { color: var(--stop); }
+.dose-idle { background: var(--none-bg); border-color: var(--none); }
+.dose-idle .dose-face { color: var(--none); }
+
+.chips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.dose-chip {
+  display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 6px 14px;
+  border: 2px solid; border-radius: 999px; font-weight: 700; font-size: 1rem;
+}
+.dose-chip .icon { width: 22px; height: 22px; flex: none; }
+.dose-chip.dose-ready { color: var(--ok); }
+.dose-chip.dose-wait { color: var(--soon); }
+.dose-chip.dose-limit { color: var(--stop); }
+.dose-chip.dose-idle { color: var(--none); }
+.dose-chip b { font-variant-numeric: tabular-nums; }
+
+.below { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.below .btn { min-height: 60px; font-size: 1rem; padding-inline: 10px; }
+.below-wide { grid-column: 1 / -1; }
+
+/* Time between doses: chips only, so a value outside the range cannot be picked. */
+.gap-card { display: grid; gap: 12px; }
+.gap-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.gap-now { font-size: 1.6rem; font-weight: 800; color: var(--primary); }
+.gap-chips { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.gap-chip {
+  display: grid; place-items: center; align-content: center; min-height: 60px; padding: 4px 2px;
+  border: 2px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--text);
+  font: inherit; font-weight: 800; font-size: 1.05rem; cursor: pointer;
+}
+.gap-chip small { font-size: 0.68rem; font-weight: 700; color: var(--muted); }
+.gap-chip[aria-checked="true"] { background: var(--primary); border-color: var(--primary); color: var(--primary-text); }
+.gap-chip[aria-checked="true"] small { color: var(--primary-text); }
+.gap-hint { color: var(--muted); }
+.note-line { text-align: center; font-size: 0.95rem; color: var(--muted); }

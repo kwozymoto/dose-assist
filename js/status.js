@@ -5,10 +5,11 @@
    words as well as a colour, and the words carry the whole meaning. The
    numbers in the words come from the rule and the engine, never from here. */
 
-import { formatWhen, formatAgo, formatDuration, formatAgeDays, formatMg } from './format.js';
+import { formatWhen, formatAgo, formatDuration, formatAgeDays, formatMg, formatGap } from './format.js';
 
 /** @typedef {import('./engine/types.js').DoseCheck} DoseCheck */
 /** @typedef {import('./engine/types.js').IngredientRule} IngredientRule */
+/** @typedef {import('./engine/gap.js').GapPlan} GapPlan */
 
 /**
  * @typedef {'none' | 'ok' | 'soon' | 'limit' | 'blocked' | 'exceeds'} CardKind
@@ -31,9 +32,10 @@ export const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
  * @param {IngredientRule | undefined} rule
  * @param {number} now
  * @param {string} timeZone
+ * @param {GapPlan} [plan]  the parent's gap; when given, the rows say when it ends and how long a dose has been allowed
  * @returns {CardStatus}
  */
-export function cardStatus(check, ingredient, rule, now, timeZone) {
+export function cardStatus(check, ingredient, rule, now, timeZone, plan) {
   const name = ingredient;
   const last = check.lastDose;
   const lastLine = last ? `Last: ${formatWhen(last.givenAt, now, timeZone)} (${formatAgo(last.givenAt, now)})` : undefined;
@@ -85,5 +87,17 @@ export function cardStatus(check, ingredient, rule, now, timeZone) {
     };
   }
 
-  return { kind: 'ok', icon: 'tick', title: `${cap(name)} can be given now`, detail: lastLine, nextAllowedAt: null };
+  if (plan?.phase === 'early' && plan.targetAt !== null && last) {
+    const span = plan.targetAt - last.givenAt;
+    return {
+      kind: 'soon',
+      icon: 'clock',
+      title: `${cap(name)}: your ${formatGap(plan.gapMinutes)} gap ends in ${formatDuration(plan.targetAt - now, { up: true })}`,
+      detail: `Can be given now if needed${lastLine ? ` · ${lastLine}` : ''}`,
+      nextAllowedAt: plan.targetAt,
+      progress: span > 0 ? Math.min(1, Math.max(0, (now - last.givenAt) / span)) : 1,
+    };
+  }
+  const allowedFor = plan?.phase === 'ready' && plan.readySince !== null ? `Allowed for ${formatDuration(now - plan.readySince)}` : null;
+  return { kind: 'ok', icon: 'tick', title: `${cap(name)} can be given now`, detail: [allowedFor, lastLine].filter(Boolean).join(' · ') || undefined, nextAllowedAt: null };
 }

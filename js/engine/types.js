@@ -29,6 +29,7 @@
  *
  * @typedef {object} IngredientRule
  * @property {number} minIntervalMinutes
+ * @property {number} [usualIntervalMaxMinutes]  top of the usual range; a parent may choose a gap from minIntervalMinutes up to this. Never lowers the minimum.
  * @property {number} maxDosesPer24h
  * @property {number} maxSingleMg
  * @property {number} maxMgPer24h
@@ -76,6 +77,7 @@
  * @property {BlockReason} [blockReason]
  * @property {ExceedReason} [exceedReason]
  * @property {number | null} nextAllowedAt  UTC ms; null when OK now, or when never allowed
+ * @property {number} [allowedSince]  UTC ms; only when OK and there is a last dose: the first instant every rule was satisfied
  * @property {number} dosesInLast24h
  * @property {number} mgInLast24h
  * @property {number | null} remainingMgIn24h  null when there is no rule
@@ -107,6 +109,7 @@
  * @property {DoseStatus} status
  * @property {BlockReason} [blockReason]
  * @property {number | null} nextAllowedAt
+ * @property {number} [allowedSince]
  * @property {Record<string, DoseCheck>} perIngredient
  * @property {WarningCode[]} warnings
  */

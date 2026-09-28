@@ -32,6 +32,43 @@ const SEVERITY = /** @type {const} */ (['BLOCKED', 'EXCEEDS_LIMIT', 'DAILY_LIMIT
  * @returns {DoseCheck}
  */
 export function checkIngredient(input) {
+  const result = evaluate(input);
+  if (result.status !== 'OK' || result.lastDose === undefined) return result;
+  const since = allowedSinceFor(input);
+  return since === null ? result : { ...result, allowedSince: since };
+}
+
+/**
+ * When did this ingredient become allowed? The first instant, after the
+ * last dose, from which every rule was satisfied. A rule can only clear when
+ * the interval after the last dose ends or when a dose leaves the 24-hour
+ * window, so those are the only instants worth trying; the answer is the
+ * first that evaluates OK (once OK, it stays OK until the next dose).
+ * Status only: any amount chosen is ignored.
+ *
+ * @param {IngredientInput} input
+ * @returns {number | null}
+ */
+function allowedSinceFor(input) {
+  const { ingredient, rules, history, now } = input;
+  if (!Object.hasOwn(rules.ingredients, ingredient)) return null;
+  const rule = rules.ingredients[ingredient];
+  const items = collect(history, ingredient);
+  const last = items.at(-1);
+  if (!last || last.givenAt > now) return null;
+  const candidates = new Set([last.givenAt + rule.minIntervalMinutes * MINUTE_MS]);
+  for (const i of items) candidates.add(i.givenAt + DAY_MS);
+  const later = [...candidates].filter((c) => c > last.givenAt && c <= now).sort((a, b) => a - b);
+  const { enteredMg: _ignored, ...statusOnly } = input;
+  for (const c of later) if (evaluate({ ...statusOnly, now: c }).status === 'OK') return c;
+  return null;
+}
+
+/**
+ * @param {IngredientInput} input
+ * @returns {DoseCheck}
+ */
+function evaluate(input) {
   const { ingredient, rules, history, now, child, timeZone, enteredMg } = input;
   validate(input);
 
@@ -135,6 +172,9 @@ export function checkDose(input) {
   const never = checks.some((c) => c.status === 'BLOCKED' || c.exceedReason === 'SINGLE_DOSE' || c.exceedReason === 'OVER_DAILY_MAX');
   const times = checks.map((c) => c.nextAllowedAt).filter((t) => t !== null);
   const nextAllowedAt = status === 'OK' || never || times.length === 0 ? null : Math.max(.../** @type {number[]} */ (times));
+  // A product is allowed since its last ingredient was.
+  const sinces = checks.map((c) => c.allowedSince).filter((t) => typeof t === 'number');
+  const allowedSince = status === 'OK' && sinces.length > 0 ? Math.max(.../** @type {number[]} */ (sinces)) : null;
 
   /** @type {WarningCode[]} */
   const warnings = [];
@@ -144,6 +184,7 @@ export function checkDose(input) {
     status,
     ...(blocked && blocked.blockReason ? { blockReason: blocked.blockReason } : {}),
     nextAllowedAt,
+    ...(allowedSince === null ? {} : { allowedSince }),
     perIngredient,
     warnings,
   };
@@ -207,6 +248,10 @@ export function assertRule(ingredient, rule) {
     if (typeof v !== 'number' || !Number.isFinite(v) || v <= 0) throw new TypeError(`rules for ${ingredient}: ${k} must be a positive number`);
   }
   if (!Number.isInteger(rule.maxDosesPer24h)) throw new TypeError(`rules for ${ingredient}: maxDosesPer24h must be a whole number`);
+  const top = rule.usualIntervalMaxMinutes;
+  if (top !== undefined && (typeof top !== 'number' || !Number.isFinite(top) || top < rule.minIntervalMinutes)) {
+    throw new TypeError(`rules for ${ingredient}: usualIntervalMaxMinutes must be a number, at least minIntervalMinutes`);
+  }
 }
 
 /** @param {IngredientInput} input */

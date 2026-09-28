@@ -88,6 +88,27 @@ export function formatAgo(ms, now) {
   return s === 'less than a minute' ? 'just now' : `${s} ago`;
 }
 
+/**
+ * A clock for the big countdown and count-up: "1:20:14".
+ * `up` rounds a countdown up to the next whole second, so it never reads
+ * 0:00:00 while a wait is still running.
+ * @param {number} ms @param {{up?: boolean}} [opts]
+ */
+export function formatClock(ms, opts = {}) {
+  const total = Math.max(0, opts.up ? Math.ceil(ms / 1000) : Math.floor(ms / 1000));
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
+
+/** A gap as a short label: 240 -> "4 h", 270 -> "4½ h", 250 -> "4 h 10 m". @param {number} minutes */
+export function formatGap(minutes) {
+  if (minutes % 60 === 0) return `${minutes / 60} h`;
+  if (minutes % 60 === 30) return `${Math.floor(minutes / 60)}½ h`;
+  return formatDuration(minutes * MINUTE_MS);
+}
+
 /** Plain-language interval from a rule's minutes: 240 -> "4 hours", 90 -> "1 h 30 m". @param {number} minutes */
 export function formatInterval(minutes) {
   if (minutes % 60 === 0) {

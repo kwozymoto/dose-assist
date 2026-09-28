@@ -15,6 +15,7 @@ import { GUIDANCE, SOURCES } from '../content/guidance.js';
 /** Only the fields tracker mode uses, in words. */
 const SHOWN = /** @type {const} */ ([
   ['minIntervalMinutes', 'Time between doses', (/** @type {number} */ v) => `at least ${formatInterval(v)}`],
+  ['usualIntervalMaxMinutes', 'Top of the usual range (you can choose a gap up to this)', formatInterval],
   ['maxDosesPer24h', 'Doses in any 24 hours', (/** @type {number} */ v) => `no more than ${v}`],
   ['maxSingleMg', 'Most in one dose', formatMg],
   ['maxMgPer24h', 'Most in any 24 hours', formatMg],

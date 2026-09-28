@@ -2,10 +2,11 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   formatTime, formatWhen, formatDuration, formatAgo, formatInterval, formatAgeDays,
-  formatMg, formatAmount, formatStrength, toLocalInput, fromLocalInput, formatDate, parseAmount,
+  formatMg, formatAmount, formatStrength, toLocalInput, fromLocalInput, formatDate, parseAmount, formatClock, formatGap,
 } from '../js/format.js';
 import { cardStatus } from '../js/status.js';
 import { checkIngredient } from '../js/engine/checkDose.js';
+import { planGap } from '../js/engine/gap.js';
 import { RULES, NOW, MIN, HOUR, TZ, CHILD, dose } from './engine/fixtures.mjs';
 
 const at = (iso) => Date.parse(iso);
@@ -187,5 +188,60 @@ describe('cardStatus', () => {
     const s = cardStatus(check, 'gamma', undefined, NOW, TZ);
     assert.equal(s.kind, 'none');
     assert.match(s.title, /follow the label/);
+  });
+});
+
+describe('formatClock', () => {
+  test('hours, minutes, seconds', () => {
+    assert.equal(formatClock(0), '0:00:00');
+    assert.equal(formatClock(((1 * 60 + 20) * 60 + 14) * 1000), '1:20:14');
+    assert.equal(formatClock(23 * 60 * 1000 + 10 * 1000), '0:23:10');
+    assert.equal(formatClock(26 * 3600 * 1000), '26:00:00');
+  });
+
+  test('a countdown rounds up so a running wait never reads zero', () => {
+    assert.equal(formatClock(400, { up: true }), '0:00:01');
+    assert.equal(formatClock(400), '0:00:00');
+    assert.equal(formatClock(-5, { up: true }), '0:00:00');
+  });
+});
+
+describe('formatGap', () => {
+  test('whole hours, half hours, and anything else in words', () => {
+    assert.equal(formatGap(240), '4 h');
+    assert.equal(formatGap(270), '4½ h');
+    assert.equal(formatGap(480), '8 h');
+    assert.equal(formatGap(250), '4 h 10 m');
+    assert.equal(formatGap(30), '0½ h');
+  });
+});
+
+describe('cardStatus with the parent\'s gap', () => {
+  const ALPHA = { ...RULES.ingredients.alpha, usualIntervalMaxMinutes: 360 };
+  const RANGED = { ...RULES, ingredients: { ...RULES.ingredients, alpha: ALPHA } };
+  const row = (ago, gapMinutes, now = NOW) => {
+    const check = checkIngredient({ ingredient: 'alpha', rules: RANGED, history: [dose('alpha', 100, ago)], now, child: CHILD, timeZone: TZ });
+    const plan = planGap({ check, rule: ALPHA, gapMinutes, now });
+    return cardStatus(check, 'alpha', ALPHA, now, TZ, plan);
+  };
+
+  test('past the minimum but before the parent\'s gap: yellow, says it can be given if needed', () => {
+    const c = row(270 * MIN, 330);
+    assert.equal(c.kind, 'soon');
+    assert.equal(c.title, 'Alpha: your 5½ h gap ends in 1 h');
+    assert.match(c.detail, /^Can be given now if needed · Last: /);
+    assert.ok(c.progress > 0 && c.progress < 1);
+  });
+
+  test('after the parent\'s gap: green, and says how long it has been allowed', () => {
+    const c = row(5 * HOUR, 270);
+    assert.equal(c.kind, 'ok');
+    assert.equal(c.title, 'Alpha can be given now');
+    assert.match(c.detail, /^Allowed for 30 m · Last: /);
+  });
+
+  test('with no gap given the wording is unchanged', () => {
+    const check = checkIngredient({ ingredient: 'alpha', rules: RANGED, history: [dose('alpha', 100, 5 * HOUR)], now: NOW, child: CHILD, timeZone: TZ });
+    assert.equal(cardStatus(check, 'alpha', ALPHA, NOW, TZ).detail.startsWith('Last: '), true);
   });
 });
