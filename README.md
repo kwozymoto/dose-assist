@@ -87,7 +87,7 @@ The same app, wrapped with [Capacitor](https://capacitorjs.com/) so reminders ar
 - `android/` is the generated Android Studio project. `USE_EXACT_ALARM` is declared for sideloading; remove it before any Google Play listing (see the comment in `AndroidManifest.xml`).
 - App id `nz.whendose.app`. Changing it later makes a different app, so decide before the first real install.
 
-Build (needs JDK 21 and the Android SDK, e.g. from Android Studio):
+Build (needs the Android SDK and a JDK, e.g. both from Android Studio). Point `JAVA_HOME` at Android Studio's bundled JDK (`<Android Studio>/jbr`) and `android/local.properties` at the SDK (`sdk.dir=D\:/path/to/Sdk`, forward slashes). The Gradle wrapper is 9.1 so it runs on the JDK 25 that Android Studio ships; the Capacitor plugins compile with a Java 21 toolchain, which Gradle fetches itself (foojay resolver in `android/settings.gradle`).
 
 ```bash
 npm run android:sync          # copy the shell into www/ and update android/
