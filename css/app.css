@@ -142,7 +142,7 @@ p { margin: 0; }
   background: var(--bg);
   border-bottom: 1px solid var(--line);
 }
-.topbar h1 { flex: 1; font-size: 1.3rem; text-align: center; overflow-wrap: anywhere; }
+.topbar h1 { flex: 1; font-size: 1.3rem; text-align: center; overflow-wrap: break-word; min-width: 0; }
 .topbar h1:focus { outline: none; }
 .iconbtn, .iconbtn-space { width: 56px; height: 56px; flex: none; }
 .iconbtn { display: grid; place-items: center; border-radius: 12px; color: var(--text); }
@@ -172,7 +172,8 @@ p { margin: 0; }
 .stack { display: flex; flex-direction: column; gap: 16px; }
 .stack-sm { display: flex; flex-direction: column; gap: 8px; }
 .button-row, .preset-row { display: flex; flex-wrap: wrap; gap: 8px; }
-.button-row > *, .preset-row > * { flex: 1 1 140px; }
+.button-row > *, .preset-row > * { flex: 1 1 190px; }
+.preset-row > * { flex-basis: 90px; }
 .row-between { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 16px; box-shadow: var(--shadow); }
@@ -415,7 +416,7 @@ textarea.input { min-height: 96px; }
 .dose-chip.dose-idle { color: var(--none); }
 .dose-chip b { font-variant-numeric: tabular-nums; }
 
-.below { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.below { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr)); gap: 10px; }
 .below .btn { min-height: 60px; font-size: 1rem; padding-inline: 10px; }
 .below-wide { grid-column: 1 / -1; }
 
@@ -590,13 +591,18 @@ body.no-tabs { padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
 /* Never let the page grow wider than the phone: on Android that widens the
    layout viewport and pushes the fixed tab bar off the bottom of the screen. */
 html, body { overflow-x: clip; }
-.btn, .choice-main, .tl-main, .kid-name, .confirm-who strong, p, li, dd, .dose-line, .dose-line2 { overflow-wrap: anywhere; }
+.btn, .choice-main, .tl-main, p, li, dd, .dose-line, .dose-line2, .status-text, h1, h2, h3 { overflow-wrap: break-word; hyphens: manual; }
+/* Only text people type (names, notes) may break mid-word: a 30-letter name
+   with no spaces must still fit. Everything else wraps between words, and
+   breaks a word only if it cannot fit on a line at all. */
+.kid-name, .confirm-who strong, .tl-main .small, .notice > p, .bullets li, .user-text { overflow-wrap: anywhere; }
 .btn, .call-text { min-width: 0; }
 .summary { overflow-wrap: anywhere; }
 .lifeline a { display: inline-block; padding: 10px 4px; }
 .cite a, .bullets a, .sources-list a { display: inline-block; padding-block: 8px; }
-.swatches { grid-template-columns: repeat(auto-fill, minmax(min(100%, 136px), 1fr)); }
-.swatch span:last-child { min-width: 0; overflow-wrap: anywhere; }
+.swatches { grid-template-columns: repeat(auto-fill, minmax(min(100%, 124px), 1fr)); }
+.swatch { gap: 6px; padding: 8px; font-size: 1rem; }
+.swatch span:last-child { min-width: 0; overflow-wrap: normal; }
 .toast { min-width: min(280px, calc(100vw - 32px)); padding: 12px 20px; text-align: center; overflow-wrap: anywhere; }
 .facts-wide { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); }
 .kid-name, .confirm-who strong { overflow-wrap: anywhere; min-width: 0; }
