@@ -2,17 +2,17 @@
 /* Home: a card per child, a row per medicine, one big "Give a dose". The
    question it answers in under five seconds: can I give another dose now? */
 
-import { h, icon, ring, toast } from '../dom.js';
+import { h, icon, ring } from '../dom.js';
 import * as db from '../db.js';
 import { state, childRows, ageText } from '../state.js';
 import { now } from '../clock.js';
 import { UNDO_MS, SHOW_TEST_NOTICE } from '../config.js';
 import { GUIDANCE } from '../content/guidance.js';
 import { pushStatus, notifyPermission } from '../push.js';
-import { refreshReminders } from '../reminders.js';
-import { formatTime, formatDuration } from '../format.js';
+import { formatTime, formatAmount } from '../format.js';
 import { timeZone } from '../clock.js';
 import { childDetail } from './child.js';
+import { undoDose } from './give.js';
 
 /** @typedef {import('../app.js').Ctx} Ctx */
 /** @typedef {import('../app.js').Screen} Screen */
@@ -42,15 +42,13 @@ export async function home(ctx) {
 
   // One child: their page is Home, so Dose now is the first thing seen.
   if (kids.length === 1) {
-    const all = [...node.childNodes];
-    const lead = all.filter((n) => n instanceof HTMLElement && n.classList.contains('notice-undo'));
-    const after = all.filter((n) => !lead.includes(n));
-    const screen = await childDetail({ ...ctx, params: { id: kids[0].id } }, { asHome: true, lead, after });
+    const after = [...node.childNodes];
+    const screen = await childDetail({ ...ctx, params: { id: kids[0].id } }, { asHome: true, lead: [], after });
     return { ...screen, title: 'WhenDose', back: false, tab: 'home' };
   }
 
-  // The children come first; standing notices go below them. Undo stays on top.
-  const notices = [...node.childNodes].filter((n) => !(n instanceof HTMLElement && n.classList.contains('notice-undo')));
+  // The children come first; notices (undo included) go below them.
+  const notices = [...node.childNodes];
   for (const n of notices) n.remove();
   node.prepend(hello(t));
 
@@ -132,18 +130,9 @@ async function banners(ctx) {
     const dose = await db.doses.get(last.doseId);
     if (dose && !dose.deletedAt) {
       const child = await db.children.get(dose.childId);
-      out.push(h('div', { class: 'notice notice-undo', role: 'status' },
-        h('p', null, `Logged ${dose.bottle.name} for ${child?.name ?? 'your child'} at ${formatTime(dose.givenAt, timeZone())}.`),
-        h('button', {
-          class: 'btn btn-secondary',
-          onclick: async () => {
-            await db.doses.remove(dose.id, { by: state.caregiver || 'Unknown', at: now(), reason: `Undo within ${formatDuration(UNDO_MS)} of logging` });
-            state.lastLogged = null;
-            toast('Dose removed');
-            await refreshReminders();
-            ctx.refresh();
-          },
-        }, icon('undo'), 'Undo'),
+      out.push(h('p', { class: 'notice-undo', role: 'status' },
+        `Just logged: ${formatAmount(dose.amount, dose.bottle.form)} of ${dose.bottle.name} for ${child?.name ?? 'your child'}, ${formatTime(dose.givenAt, timeZone())}. `,
+        h('button', { class: 'linkbtn', onclick: async () => { if (await undoDose(dose, child?.name ?? 'your child')) ctx.refresh(); } }, 'Undo'),
       ));
     }
   }

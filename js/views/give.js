@@ -658,11 +658,8 @@ async function doneStep(ctx) {
   const custom = /** @type {HTMLInputElement} */ (h('input', { class: 'input', type: 'datetime-local', id: 'remind-at', min: toLocalInput(t, tz), value: toLocalInput(nextAt ?? dose.givenAt + SCHEDULE_PRESET_HOURS[0] * 3600e3, tz) }));
 
   const undo = async () => {
-    await db.doses.remove(dose.id, { by: state.caregiver || dose.givenBy, at: now(), reason: 'Undo straight after logging' });
-    state.lastLogged = null;
+    if (!(await undoDose(dose, child.name))) return;
     logged = null;
-    await refreshReminders();
-    toast('Dose removed');
     ctx.go('/');
   };
 
@@ -671,7 +668,7 @@ async function doneStep(ctx) {
       h('span', { class: 'status-icon' }, icon('tick')),
       h('p', null, h('strong', null, 'Logged. '), `${formatAmount(dose.amount, dose.bottle.form)} of ${dose.bottle.name} for ${child.name} at ${formatTime(dose.givenAt, tz)}.`),
     ),
-    now() - dose.loggedAt < UNDO_MS ? h('button', { class: 'btn btn-secondary', onclick: undo }, icon('undo'), 'Undo') : null,
+    now() - dose.loggedAt < UNDO_MS ? h('button', { class: 'btn btn-quiet', onclick: undo }, icon('undo'), 'Undo this dose') : null,
     worrying ? h('div', { class: 'notice notice-danger', role: 'alert' },
       h('strong', null, GUIDANCE.overdose.title),
       h('p', null, GUIDANCE.overdose.text),
@@ -729,6 +726,25 @@ function weightCautions(check, child, tz) {
     }
   }
   return out.length ? h('div', { class: 'stack-sm' }, out) : null;
+}
+
+/**
+ * Undo a dose just logged, after asking. Marks it deleted (kept in the audit).
+ * @param {DoseRecord} dose @param {string} childName @returns {Promise<boolean>} true if undone
+ */
+export async function undoDose(dose, childName) {
+  const tz = timeZone();
+  const ok = await confirmDialog({
+    title: 'Delete this dose?',
+    body: `${formatAmount(dose.amount, dose.bottle.form)} of ${dose.bottle.name} for ${childName} at ${formatTime(dose.givenAt, tz)}. It will stop counting towards limits and reminders.`,
+    confirm: 'Delete', danger: true,
+  });
+  if (!ok) return false;
+  await db.doses.remove(dose.id, { by: state.caregiver || dose.givenBy, at: now(), reason: `Undo within ${formatDuration(UNDO_MS)} of logging` });
+  state.lastLogged = null;
+  await refreshReminders();
+  toast('Dose deleted');
+  return true;
 }
 
 /**
