@@ -112,6 +112,7 @@ export const STORES = ['children', 'weights', 'bottles', 'photos', 'doses', 'aud
  * @property {number} createdAt
  * @property {number | null} [firedAt]
  * @property {number | null} [cancelledAt]
+ * @property {{fireAt: number} | null} [planned]  written by reminders.js, read by sw.js
  *
  * @typedef {object} SymptomEntry
  * @property {string} id
@@ -419,6 +420,15 @@ export const reminders = {
   async markFired(id, at) {
     const r = await get('reminders', id);
     if (r && !r.firedAt) await put('reminders', { ...r, firedAt: at });
+  },
+  /**
+   * The time this reminder is currently planned for. sw.js checks a pushed
+   * message against it and refuses to present a superseded one as current.
+   * @param {string} id @param {{fireAt: number} | null} planned
+   */
+  async setPlanned(id, planned) {
+    const r = await get('reminders', id);
+    if (r) await put('reminders', { ...r, planned });
   },
 };
 

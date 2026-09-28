@@ -83,15 +83,7 @@ describe('scheduled', () => {
   });
 });
 
-describe('follow-ups and ordering', () => {
-  test('follow-up notices come after, when switched on', () => {
-    const notices = plan([rem()], [dose('alpha', HOUR)], { followUpMinutes: 15 });
-    assert.equal(notices.length, 2);
-    assert.equal(notices[1].kind, 'follow_up');
-    assert.equal(notices[1].fireAt - notices[0].fireAt, 15 * MIN);
-    assert.equal(notices[1].tag, notices[0].tag);
-  });
-
+describe('ordering', () => {
   test('soonest first', () => {
     const notices = plan(
       [rem({ id: 'a', ingredients: ['beta'] }), rem({ id: 'b', ingredients: ['alpha'] })],

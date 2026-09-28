@@ -29,7 +29,7 @@ import { formatTime, formatWhen } from './format.js';
  * @property {string} tag      one per reminder, so a local and a pushed copy collapse into one
  * @property {string} url      where a tap opens
  * @property {string} logUrl   the "Log dose" action: opens the give flow, never logs by itself
- * @property {'next_allowed' | 'scheduled' | 'follow_up'} kind
+ * @property {'next_allowed' | 'scheduled'} kind
  */
 
 /** "paracetamol", "paracetamol and ibuprofen". @param {string[]} xs */
@@ -42,10 +42,9 @@ export const listNames = (xs) => (xs.length <= 1 ? xs.join('') : `${xs.slice(0, 
  * @param {DoseRecord[]} p.doses     every dose (deleted ones are ignored by the engine)
  * @param {Rules} p.rules
  * @param {string} p.timeZone
- * @param {number} [p.followUpMinutes]  when set, a second nudge that many minutes after, until acknowledged
  * @returns {Notice[]} soonest first
  */
-export function planNotices({ reminders, children, doses, rules, timeZone, followUpMinutes }) {
+export function planNotices({ reminders, children, doses, rules, timeZone }) {
   /** @type {Notice[]} */
   const out = [];
   for (const r of reminders) {
@@ -87,11 +86,7 @@ export function planNotices({ reminders, children, doses, rules, timeZone, follo
       }
       notice = { reminderId: r.id, childId: child.id, fireAt: at, kind: 'scheduled', tag: r.id, url, logUrl, title: `${child.name}: ${names} reminder`, body };
     }
-    if (!notice) continue;
-    out.push(notice);
-    if (followUpMinutes && followUpMinutes > 0) {
-      out.push({ ...notice, kind: 'follow_up', fireAt: notice.fireAt + followUpMinutes * 60000, title: `Reminder: ${notice.title}` });
-    }
+    if (notice) out.push(notice);
   }
   return out.sort((a, b) => a.fireAt - b.fireAt);
 }
