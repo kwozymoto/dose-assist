@@ -6,7 +6,7 @@ import { h, icon, ring, toast } from '../dom.js';
 import * as db from '../db.js';
 import { state, childRows, ageText } from '../state.js';
 import { now } from '../clock.js';
-import { UNDO_MS } from '../config.js';
+import { UNDO_MS, SHOW_TEST_NOTICE } from '../config.js';
 import { GUIDANCE } from '../content/guidance.js';
 import { pushStatus, notifyPermission } from '../push.js';
 import { refreshReminders } from '../reminders.js';
@@ -165,7 +165,7 @@ async function banners(ctx) {
     ));
   }
 
-  if (state.rules.reviewedBy === null) {
+  if (SHOW_TEST_NOTICE && state.rules.reviewedBy === null) {
     out.push(h('div', { class: 'notice notice-test' }, icon('warn'), h('p', null, GUIDANCE.notReviewed.text)));
   }
   return out;

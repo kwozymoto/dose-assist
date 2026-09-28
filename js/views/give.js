@@ -26,7 +26,7 @@ import { now, timeZone } from '../clock.js';
 import { formatWhen, formatDate, formatAgo, formatDuration, formatMg, formatAmount, formatStrength, formatTime, toLocalInput, fromLocalInput, formatAgeDays, formatInterval, parseAmount } from '../format.js';
 import { cardStatus, cap } from '../status.js';
 import { statusRow } from './home.js';
-import { BACKDATE_MAX_MS, SCHEDULE_PRESET_HOURS, UNDO_MS, WEIGHT_FRESH_MS } from '../config.js';
+import { BACKDATE_MAX_MS, SCHEDULE_PRESET_HOURS, UNDO_MS, WEIGHT_FRESH_MS, SHOW_TEST_NOTICE } from '../config.js';
 import { checkWeight } from '../engine/weight.js';
 import { GUIDANCE } from '../content/guidance.js';
 import { EMERGENCY } from '../constants.js';
@@ -604,7 +604,7 @@ async function confirmStep(ctx, child, bottle, base) {
 function warningList(check, child, bottle) {
   const out = h('div', { class: 'stack-sm' });
   const w = check.warnings;
-  if (w.includes('RULE_UNVERIFIED') || w.includes('RULES_NOT_REVIEWED')) out.append(h('p', { class: 'small muted' }, GUIDANCE.notReviewed.text));
+  if (SHOW_TEST_NOTICE && (w.includes('RULE_UNVERIFIED') || w.includes('RULES_NOT_REVIEWED'))) out.append(h('p', { class: 'small muted' }, GUIDANCE.notReviewed.text));
   if (w.includes('LONG_USE')) out.append(guidanceBox(GUIDANCE.longUse, 'warn'));
   if (w.includes('AGE_UNKNOWN')) out.append(h('p', { class: 'small' }, `Add ${child.name}’s date of birth so the app can check age limits.`));
   if (w.includes('DOSE_IN_FUTURE')) out.append(h('p', { class: 'small' }, 'A dose on record has a time later than now. Check the clock on each phone is right.'));

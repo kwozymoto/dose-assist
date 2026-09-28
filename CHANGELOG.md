@@ -4,6 +4,7 @@
 
 - The name is written **WhenDose** (was Whendose). App id unchanged (`nz.whendose.app`).
 - **Auto theme** now goes by the clock only: dark from 7pm to 7am, light by day. Before, by day it followed the phone, so a phone set to dark stayed dark all day. "Same as my phone" still follows the phone. The theme is re-checked whenever the app comes back to the front.
+- The **"Test version" notice** is off (`SHOW_TEST_NOTICE` in `js/config.js`) while only the owner's family uses the app. Turn it back on before sharing; the Sources screen still shows the review status.
 
 ## Weight check; no doctor override; 24-hour backdating (unreleased)
 

@@ -10,6 +10,12 @@ export const PUSH_URL = '';
 export const VAPID_PUBLIC_KEY = '';
 
 /* Undo stays available this long after logging (PLAN.md 8.1). */
+/* The "Test version: limits not yet checked by a pharmacist" notice. Off
+   while only the owner's family uses the app (owner's decision, 2026-09-29).
+   Turn it back on before sharing the app with anyone else: the rules are
+   still unreviewed (docs/clinical-review). The Sources screen always says so. */
+export const SHOW_TEST_NOTICE = false;
+
 export const UNDO_MS = 2 * 60 * 1000;
 /* "I gave it earlier" reaches back this far, the same as the rolling limit
    window, so any dose that still counts can be recorded (PLAN.md 7.1 item 9,

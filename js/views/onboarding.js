@@ -7,6 +7,7 @@ import * as db from '../db.js';
 import { state } from '../state.js';
 import { now } from '../clock.js';
 import { GUIDANCE } from '../content/guidance.js';
+import { SHOW_TEST_NOTICE } from '../config.js';
 import { enablePush } from '../push.js';
 import { callButton } from './help.js';
 import { guidanceBox } from './give.js';
@@ -109,7 +110,7 @@ export async function onboarding(ctx) {
     h('p', { class: 'lead' }, 'A record of your children’s medicine doses, and a reminder when the next one is allowed.'),
     guidanceBox(GUIDANCE.whatItDoes),
     guidanceBox(GUIDANCE.whatItDoesNot, 'warn'),
-    state.rules.reviewedBy === null ? h('p', { class: 'notice notice-test' }, GUIDANCE.notReviewed.text) : null,
+    SHOW_TEST_NOTICE && state.rules.reviewedBy === null ? h('p', { class: 'notice notice-test' }, GUIDANCE.notReviewed.text) : null,
     h('label', { class: 'check', for: 'o-accept' }, accept, h('span', null, 'I understand this app keeps a record and is not medical advice. I will follow the label and my doctor or pharmacist.')),
     go,
   );
