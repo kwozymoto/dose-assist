@@ -1,5 +1,11 @@
 # Changelog
 
+## Renamed to Whendose; Android app (unreleased)
+
+**Name.** The app is now **Whendose** everywhere a person sees it (title, home screen name, notifications, summaries, backup file names). Android app id `nz.whendose.app`. Internal names keep `dose-assist` (the browser database, the backup format, the offline cache), so records and backups made before the rename still open.
+
+**Android.** A Capacitor 8 wrapper for a sideloaded APK. Reminders are scheduled as exact Android alarms on the phone (`js/native.js`), so they fire with the app closed and no internet, and are restored after a restart. A tap opens a screen and never logs a dose. `www/` is copied from the `sw.js` SHELL, so the APK and the web app ship the same files. Not yet built or run on a phone.
+
 ## The Dreamy look; one child means Home is their page (unreleased)
 
 **Look.** The app now uses "Dreamy" (chosen from the three in `design/`): a sky-to-lilac sky with clouds by day and a starry twilight at night, frosted rounded cards, a floating tab bar, pastel periwinkle buttons, Quicksand headings and Nunito text (self-hosted in `css/fonts/`, OFL, with Latin Extended for macrons). On a screen about one child the top of the sky takes that child's colour. `--primary` is now a pastel fill; text in the brand colour uses the new `--link`. Child colours are pastel with `--on-kid` ink. `check_theme` now holds 114 pairs at 4.5:1, including text on every child-tinted sky in both themes. Stop screens keep a heavier border and the biggest words on the page.

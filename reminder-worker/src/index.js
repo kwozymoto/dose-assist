@@ -1,4 +1,4 @@
-/* Dose Assist reminder server (Cloudflare Worker + Durable Object).
+/* Whendose reminder server (Cloudflare Worker + Durable Object).
 
    A dumb clock. For each phone it holds a list of (time, ciphertext) and
    sends each ciphertext to that phone's push service when its time comes.

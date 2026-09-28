@@ -1,4 +1,4 @@
-# Dose Assist
+# Whendose
 
 A record of your children's medicine doses, and a reminder when the next one is allowed. For New Zealand parents and anyone sharing the care of a sick child.
 
@@ -68,7 +68,7 @@ npx wrangler deploy
 
 Then set `PUSH_URL` (the worker's URL) and `VAPID_PUBLIC_KEY` in `js/config.js`, bump `VERSION` in `sw.js`, and add the site's origin to `ALLOWED_ORIGINS` in `reminder-worker/wrangler.toml` if it is not `https://kwozymoto.github.io`.
 
-On iPhone, push needs iOS 16.4 or later and Dose Assist added to the Home Screen.
+On iPhone, push needs iOS 16.4 or later and Whendose added to the Home Screen.
 
 ## Sources
 
@@ -85,7 +85,7 @@ The same app, wrapped with [Capacitor](https://capacitorjs.com/) so reminders ar
 - `js/native.js` hands the plan from `planNotices` to `@capacitor/local-notifications` (exact alarms, allowed in Doze, one channel "Dose reminders"). A tap opens a screen; it never logs a dose. In a browser it does nothing.
 - `tools/build_www.mjs` copies exactly the `sw.js` SHELL into `www/` (Capacitor's `webDir`, git-ignored), so the APK and the web app cannot ship different files. There is no service worker inside the app.
 - `android/` is the generated Android Studio project. `USE_EXACT_ALARM` is declared for sideloading; remove it before any Google Play listing (see the comment in `AndroidManifest.xml`).
-- App id `nz.doseassist.app`. Changing it later makes a different app, so decide before the first real install.
+- App id `nz.whendose.app`. Changing it later makes a different app, so decide before the first real install.
 
 Build (needs JDK 21 and the Android SDK, e.g. from Android Studio):
 

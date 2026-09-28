@@ -79,7 +79,7 @@ export function planNotices({ reminders, children, doses, rules, timeZone }) {
       notice = {
         reminderId: r.id, childId: child.id, fireAt, kind: 'next_allowed', tag: r.id, url, logUrl,
         title: `${child.name}: next ${names} allowed from now`,
-        body: `Last given ${formatWhen(last, fireAt, timeZone)}. Open Dose Assist to check before giving.`,
+        body: `Last given ${formatWhen(last, fireAt, timeZone)}. Open Whendose to check before giving.`,
       };
     } else if (r.kind === 'scheduled' && typeof r.fireAt === 'number') {
       const at = r.fireAt;
@@ -92,7 +92,7 @@ export function planNotices({ reminders, children, doses, rules, timeZone }) {
       } else if (check.nextAllowedAt !== null) {
         body = `Your reminder for ${child.name}'s ${names} (${label}). The usual limits allow the next dose from ${formatTime(check.nextAllowedAt, timeZone)}. Follow your doctor's instructions.${lastText}`;
       } else {
-        body = `Your reminder for ${child.name}'s ${names} (${label}). Open Dose Assist to check before giving.${lastText}`;
+        body = `Your reminder for ${child.name}'s ${names} (${label}). Open Whendose to check before giving.${lastText}`;
       }
       notice = { reminderId: r.id, childId: child.id, fireAt: at, kind: 'scheduled', tag: r.id, url, logUrl, title: `${child.name}: ${names} reminder`, body };
     }

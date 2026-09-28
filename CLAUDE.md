@@ -1,6 +1,6 @@
-# CLAUDE.md: Dose Assist
+# CLAUDE.md: Whendose
 
-Dose Assist is an installable web app (PWA) for NZ parents to track children's medicine doses and get reminders for when the next dose is allowed. The full plan is in `PLAN.md`. Read it before starting any task.
+Whendose is an installable web app (PWA) for NZ parents to track children's medicine doses and get reminders for when the next dose is allowed. The full plan is in `PLAN.md`. Read it before starting any task.
 
 It is built the same way as Everyday Koine: plain HTML, CSS and JavaScript (ES modules), **no build step, no framework**, a service worker for offline, and checkers in `tools/` that hold the rules below. `PLAN.md` section 9 was written for React Native; section 9.0 records the change and why.
 

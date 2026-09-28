@@ -1,4 +1,4 @@
-/* Dose Assist service worker.
+/* Whendose service worker.
 
    Cache-first for the app shell: it opens instantly and works with no
    connection. Bump VERSION to ship a change; the old cache is dropped on
@@ -8,7 +8,7 @@
    if SHELL names a file that does not exist, or if a shell file changed
    since git HEAD without VERSION changing. */
 
-const VERSION = 'v8';
+const VERSION = 'v9';
 const CACHE = `dose-assist-${VERSION}`;
 
 const SHELL = [
@@ -166,8 +166,8 @@ self.addEventListener('push', (e) => {
       });
       await markFired(msg.rid, Date.now());
     } else {
-      await self.registration.showNotification('Dose Assist', {
-        body: 'Your reminder times have changed. Open Dose Assist to see the latest.',
+      await self.registration.showNotification('Whendose', {
+        body: 'Your reminder times have changed. Open Whendose to see the latest.',
         tag: 'dose-assist-changed',
         icon: 'icons/icon-192.png',
         badge: 'icons/badge-96.png',

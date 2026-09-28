@@ -1,6 +1,6 @@
 {
-  "appId": "nz.doseassist.app",
-  "appName": "Dose Assist",
+  "appId": "nz.whendose.app",
+  "appName": "Whendose",
   "webDir": "www",
   "android": {
     "allowMixedContent": false,

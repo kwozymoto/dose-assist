@@ -202,7 +202,7 @@ describe('export, import, delete', () => {
   test('import rejects files that are not backups, and leaves data alone', async () => {
     const c = child();
     await db.children.save(c);
-    await assert.rejects(() => db.importAll({ hello: 1 }), /not a Dose Assist backup/);
+    await assert.rejects(() => db.importAll({ hello: 1 }), /not a Whendose backup/);
     await assert.rejects(() => db.importAll({ format: db.EXPORT_FORMAT, version: 999, data: {} }), /newer version/);
     assert.ok(await db.children.get(c.id));
   });

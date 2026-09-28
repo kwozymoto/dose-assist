@@ -42,7 +42,7 @@ export const SOURCES = {
 /** @type {Record<string, Guidance>} */
 export const GUIDANCE = {
   whatItDoes: {
-    title: 'What Dose Assist does',
+    title: 'What Whendose does',
     items: [
       'Keeps a record of every dose: what, how much, when, and who gave it.',
       'Shows when the next dose is allowed, using the usual limits for each medicine.',

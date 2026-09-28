@@ -33,11 +33,11 @@ export async function settings(ctx) {
   const push = await pushStatus();
   const perm = await notifyPermission();
   const reminderText = {
-    unsupported: 'This browser cannot show notifications. Reminders show inside the app while it is open. On iPhone, add Dose Assist to your Home Screen first.',
+    unsupported: 'This browser cannot show notifications. Reminders show inside the app while it is open. On iPhone, add Whendose to your Home Screen first.',
     'not-configured': perm === 'granted'
-      ? 'Notifications are on. They come while Dose Assist is open or in the background. Reminders with the app fully closed are not set up in this version yet.'
+      ? 'Notifications are on. They come while Whendose is open or in the background. Reminders with the app fully closed are not set up in this version yet.'
       : 'Turn notifications on so reminders can reach you.',
-    denied: 'Notifications are blocked. Turn them on for Dose Assist in your phone’s settings.',
+    denied: 'Notifications are blocked. Turn them on for Whendose in your phone’s settings.',
     off: 'Reminders are off.',
     on: 'Reminders are on, including when the app is closed.',
   }[push];
@@ -52,7 +52,7 @@ export async function settings(ctx) {
   const exportData = async () => {
     const file = await db.exportAll(now());
     const blob = new Blob([JSON.stringify(file, null, 2)], { type: 'application/json' });
-    const a = h('a', { href: URL.createObjectURL(blob), download: `dose-assist-backup-${new Date(now()).toISOString().slice(0, 10)}.json` });
+    const a = h('a', { href: URL.createObjectURL(blob), download: `whendose-backup-${new Date(now()).toISOString().slice(0, 10)}.json` });
     document.body.append(a);
     a.click();
     a.remove();
@@ -105,7 +105,7 @@ export async function settings(ctx) {
         ? h('button', { class: 'btn btn-primary', onclick: async () => { const s = await enablePush(); toast(s === 'on' || (await notifyPermission()) === 'granted' ? 'Notifications on' : 'Notifications not allowed'); await refreshReminders(); ctx.refresh(); } }, icon('bell'), 'Turn on notifications')
         : null,
       push === 'on' ? h('button', { class: 'btn btn-secondary', onclick: async () => { await disablePush(); toast('Reminders with the app closed are off'); ctx.refresh(); } }, 'Turn off reminders when closed') : null,
-      inexact ? h('div', { class: 'notice notice-warn' }, h('p', null, 'Your phone may deliver reminders a few minutes late. Allow alarms and reminders for Dose Assist so they come on time.'), h('button', { class: 'btn btn-secondary', onclick: async () => { await openExactAlarmSettings(); ctx.refresh(); } }, 'Allow alarms')) : null,
+      inexact ? h('div', { class: 'notice notice-warn' }, h('p', null, 'Your phone may deliver reminders a few minutes late. Allow alarms and reminders for Whendose so they come on time.'), h('button', { class: 'btn btn-secondary', onclick: async () => { await openExactAlarmSettings(); ctx.refresh(); } }, 'Allow alarms')) : null,
       perm === 'granted' ? h('button', { class: 'btn btn-secondary', onclick: testNotification }, 'Send a test notification') : null,
       h('p', { class: 'small muted' }, active.length === 0 ? 'No reminders set.' : `${active.length} reminder${active.length === 1 ? '' : 's'} set.`),
       active.length ? h('button', { class: 'btn btn-quiet', onclick: async () => { for (const r of active) await db.reminders.cancel(r.id, now()); await refreshReminders(); toast('Reminders cleared'); ctx.refresh(); } }, 'Clear all reminders') : null,
@@ -142,7 +142,7 @@ async function testNotification() {
   if (isNative()) { await testNative(); toast('A test notification is on its way'); return; }
   const reg = await navigator.serviceWorker?.getRegistration();
   if (!reg) { toast('Not available here'); return; }
-  await reg.showNotification('Dose Assist', { body: 'This is how reminders will look.', tag: 'test', icon: 'icons/icon-192.png' });
+  await reg.showNotification('Whendose', { body: 'This is how reminders will look.', tag: 'test', icon: 'icons/icon-192.png' });
 }
 
 /** Testing only: move the app's clock. @param {Ctx} ctx */

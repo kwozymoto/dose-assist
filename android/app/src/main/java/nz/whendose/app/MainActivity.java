@@ -1,4 +1,4 @@
-package nz.doseassist.app;
+package nz.whendose.app;
 
 import com.getcapacitor.BridgeActivity;
 

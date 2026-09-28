@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">Dose Assist</string>
-    <string name="title_activity_main">Dose Assist</string>
-    <string name="package_name">nz.doseassist.app</string>
-    <string name="custom_url_scheme">nz.doseassist.app</string>
+    <string name="app_name">Whendose</string>
+    <string name="title_activity_main">Whendose</string>
+    <string name="package_name">nz.whendose.app</string>
+    <string name="custom_url_scheme">nz.whendose.app</string>
 </resources>

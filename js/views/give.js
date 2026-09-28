@@ -565,7 +565,7 @@ async function knownCaregivers() {
 /** @param {Ctx} ctx @returns {Promise<Screen>} */
 async function doneStep(ctx) {
   const dose = logged ? await db.doses.get(logged.doseId) : undefined;
-  if (!dose) { ctx.go('/', { replace: true }); return { title: 'Dose Assist', node: h('div') }; }
+  if (!dose) { ctx.go('/', { replace: true }); return { title: 'Whendose', node: h('div') }; }
   const child = /** @type {Child} */ (await db.children.get(dose.childId));
   const tz = timeZone();
   const t = now();

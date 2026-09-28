@@ -1,6 +1,6 @@
 {
-  "name": "Dose Assist",
-  "short_name": "Dose Assist",
+  "name": "Whendose",
+  "short_name": "Whendose",
   "description": "A record of your children's medicine doses, and a reminder when the next one is allowed.",
   "id": "./",
   "start_url": "./",

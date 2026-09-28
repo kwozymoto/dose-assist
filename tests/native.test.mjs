@@ -2,7 +2,7 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { nativeId, toNative, hashOf, isNative, CHANNEL_ID } from '../js/native.js';
 
-const notice = { reminderId: 'r-123', childId: 'c1', fireAt: Date.UTC(2026, 9, 14, 1, 15), title: 'Mia: next paracetamol allowed from now', body: 'Last given 9:15pm. Open Dose Assist to check before giving.', tag: 'r-123', url: './#/child/c1', logUrl: './#/give?child=c1&ingredients=paracetamol', kind: 'next_allowed' };
+const notice = { reminderId: 'r-123', childId: 'c1', fireAt: Date.UTC(2026, 9, 14, 1, 15), title: 'Mia: next paracetamol allowed from now', body: 'Last given 9:15pm. Open Whendose to check before giving.', tag: 'r-123', url: './#/child/c1', logUrl: './#/give?child=c1&ingredients=paracetamol', kind: 'next_allowed' };
 
 describe('native reminders', () => {
   test('not native in node or a browser', () => {

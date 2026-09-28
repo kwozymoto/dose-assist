@@ -67,7 +67,7 @@ export async function onboarding(ctx) {
 
   if (step === 'notify') {
     return screen('Reminders', progress,
-      h('p', null, 'Dose Assist can tell you when the next dose is allowed, so nobody has to watch the clock.'),
+      h('p', null, 'Whendose can tell you when the next dose is allowed, so nobody has to watch the clock.'),
       h('p', { class: 'small muted' }, 'Your phone will ask whether to allow notifications. The app only sends reminders you ask for.'),
       h('button', { class: 'btn btn-primary btn-big', onclick: async () => { try { await enablePush(); } catch { /* shown later */ } next('install'); } }, icon('bell'), 'Turn on reminders'),
       h('button', { class: 'btn btn-quiet', onclick: () => next('install') }, 'Not now'),
@@ -82,8 +82,8 @@ export async function onboarding(ctx) {
     };
     return screen('Keep it on your Home Screen', progress,
       ios
-        ? h('p', null, 'On iPhone, tap Share, then “Add to Home Screen”. Reminders only work on iPhone once Dose Assist is on your Home Screen, and it keeps your records safe from being cleared.')
-        : h('p', null, 'Add Dose Assist to your Home Screen so it opens like an app, works offline, and your records are kept. Your browser’s menu has “Install app” or “Add to Home screen”.'),
+        ? h('p', null, 'On iPhone, tap Share, then “Add to Home Screen”. Reminders only work on iPhone once Whendose is on your Home Screen, and it keeps your records safe from being cleared.')
+        : h('p', null, 'Add Whendose to your Home Screen so it opens like an app, works offline, and your records are kept. Your browser’s menu has “Install app” or “Add to Home screen”.'),
       h('button', { class: 'btn btn-primary btn-big', onclick: finish }, 'Start'),
     );
   }
@@ -95,7 +95,7 @@ export async function onboarding(ctx) {
     next('numbers');
   } }, 'I understand'));
   accept.addEventListener('change', () => { go.disabled = !accept.checked; });
-  return screen('Welcome to Dose Assist', progress,
+  return screen('Welcome to Whendose', progress,
     h('p', { class: 'lead' }, 'A record of your children’s medicine doses, and a reminder when the next one is allowed.'),
     guidanceBox(GUIDANCE.whatItDoes),
     guidanceBox(GUIDANCE.whatItDoesNot, 'warn'),

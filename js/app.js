@@ -141,7 +141,7 @@ async function softRefresh() {
 
 /** @param {Screen} s */
 function paint(s) {
-  document.title = s.title === 'Dose Assist' ? 'Dose Assist' : `${s.title} · Dose Assist`;
+  document.title = s.title === 'Whendose' ? 'Whendose' : `${s.title} · Whendose`;
   const top = /** @type {HTMLElement} */ (document.getElementById('topbar'));
   top.replaceChildren(
     s.back ? h('a', { class: 'iconbtn', href: '#' + s.back, 'aria-label': 'Back' }, icon('back')) : h('span', { class: 'iconbtn-space' }),
@@ -201,7 +201,7 @@ async function boot() {
   try {
     await loadData();
   } catch (err) {
-    document.getElementById('view')?.replaceChildren(h('p', { class: 'stack' }, 'Dose Assist could not load its medicine rules. Check your connection and reload.'));
+    document.getElementById('view')?.replaceChildren(h('p', { class: 'stack' }, 'Whendose could not load its medicine rules. Check your connection and reload.'));
     throw err;
   }
   await applyTheme();
