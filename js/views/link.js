@@ -27,7 +27,9 @@ export async function linkView(ctx) {
   }
   const cfg = await syncConfig();
   if (ctx.query.get('show') === '1') return showCode(ctx, back);
-  const incoming = takeIncoming();
+  // Kept until used: the app redraws this screen as it comes to the front, and
+  // that redraw must show the same question, not lose the link.
+  const incoming = ctx.query.get('incoming') === '1' ? pending : null;
   if (incoming) return confirmIncoming(ctx, back, incoming, cfg);
   if (cfg) return linked(ctx, back);
 
@@ -107,7 +109,6 @@ async function linked(ctx, back) {
 let pending = null;
 /** Hold a link that opened the app, for the Linked phones screen. @param {string} text */
 export function setIncoming(text) { pending = readLink(text) ? text.trim() : null; return pending !== null; }
-function takeIncoming() { const t = pending; pending = null; return t; }
 
 /**
  * Ask before joining: a link only links this phone when the parent says so.
@@ -134,6 +135,7 @@ function confirmIncoming(ctx, back, text, cfg) {
 /** @param {Ctx} ctx @param {string} text */
 async function join(ctx, text) {
   if (!readLink(text)) { toast('That is not a WhenDose link code.'); return; }
+  pending = null;
   const kids = await db.children.list({ includeArchived: true });
   let replace = false;
   if (kids.length) {
