@@ -14,12 +14,14 @@
 import * as db from './db.js';
 import { SYNC_URL } from './config.js';
 import { newFamily, linkText, readLink, authToken, seal, open } from './synccrypto.js';
-import { outgoing, chunk } from './syncmerge.js';
+import { outgoing, chunk, pushedMark } from './syncmerge.js';
+import { duplicateChildren } from './syncchecks.js';
 import { isNative, setNativeSyncKey, registerPush, nudgePayload } from './native.js';
 import { upcomingNotices } from './reminders.js';
 
 /**
- * @typedef {{fid: string, key: string, pushed: number, cursor: number, linkedAt: number, sendAll?: boolean}} SyncConfig
+ * @typedef {{fid: string, key: string, pushed: number, pushedSeq?: number, cursor: number, linkedAt: number, sendAll?: boolean, otherAt?: number}} SyncConfig
+ *   otherAt: when a change from another phone last arrived (never: the other phone has not linked yet)
  * @typedef {{okAt?: number, errorAt?: number, error?: string}} SyncStatus
  */
 
@@ -47,6 +49,11 @@ export async function startFamily() {
   await db.meta.set('sync', /** @type {SyncConfig} */ ({ ...f, pushed: 0, cursor: 0, linkedAt: Date.now(), sendAll: true }));
   await setNativeSyncKey(f.key);
   startPush();
+  // Even a phone with no records yet puts one sealed "hello" on the server, so
+  // a phone joining with this code can tell the code is real.
+  try {
+    await fetch(`${SYNC_URL}/v1/sync/${f.fid}/push`, { method: 'POST', headers: { Authorization: `Bearer ${await authToken(f.key)}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ dev: db.deviceId(), blobs: [await seal(f.key, { v: 1, changes: [] })] }) });
+  } catch { /* the first real sync will create it */ }
   syncSoon(0);
   return linkText(f, SYNC_URL);
 }
@@ -65,12 +72,47 @@ export async function currentLink() {
 export async function joinFamily(text, opts) {
   const f = readLink(text);
   if (!f) throw new Error('That is not a WhenDose link code.');
+  // Check first, before anything on this phone changes: a code with a typo
+  // (or one never shown) finds no other phone, and must not "link" to nothing.
+  const found = await probe(f);
+  if (found !== 'ok') return { status: found };
   if (opts.replace) await db.syncData.clear();
   else await db.syncData.stampAll();
-  await db.meta.set('sync', /** @type {SyncConfig} */ ({ ...f, pushed: 0, cursor: 0, linkedAt: Date.now(), sendAll: true }));
+  await db.meta.set('sync', /** @type {SyncConfig} */ ({ ...f, pushed: 0, pushedSeq: 0, cursor: 0, linkedAt: Date.now(), sendAll: true }));
   await setNativeSyncKey(f.key);
   startPush();
-  return syncNow();
+  const r = await syncNow();
+  // The same child set up on both phones before linking: make them one.
+  let merged = 0;
+  if (!opts.replace) {
+    for (const g of duplicateChildren(await db.children.list())) {
+      for (const from of g.merge) { await db.syncData.moveChild(from, g.keep, { by: (await db.meta.get('caregiverName', '')) || 'WhenDose', at: Date.now() }); merged += 1; }
+    }
+    if (merged) await syncNow();
+  }
+  return { ...r, mergedChildren: merged };
+}
+
+/**
+ * Does this code open a family another phone has already started?
+ * @param {{fid: string, key: string}} f
+ * @returns {Promise<'ok' | 'not-found' | 'wrong-key' | 'offline'>}
+ */
+async function probe(f) {
+  try {
+    const res = await fetch(`${SYNC_URL}/v1/sync/${f.fid}/pull?after=0`, { headers: { Authorization: `Bearer ${await authToken(f.key)}` } });
+    if (res.status === 403) return 'wrong-key';
+    if (!res.ok) return 'offline';
+    const body = await res.json();
+    const me = db.deviceId();
+    for (const it of body.items ?? []) {
+      if (it.dev === me) continue;
+      try { await open(f.key, it.blob); return 'ok'; } catch { /* not sealed with this key */ }
+    }
+    return 'not-found';
+  } catch {
+    return 'offline';
+  }
 }
 
 /** Stop syncing on this phone. Its records stay; the other phone keeps its own. */
@@ -127,8 +169,9 @@ async function run() {
   try {
     const started = Date.now();
     // A new pairing sends everything this phone has, once, including what it got from another phone before.
-    const out = outgoing(await db.syncData.snapshot(), me, cfg.pushed, { all: cfg.sendAll === true });
+    const out = outgoing(await db.syncData.snapshot(), me, { seq: cfg.pushedSeq ?? 0, time: cfg.pushed }, { all: cfg.sendAll === true });
     let pushed = cfg.pushed;
+    let pushedSeq = cfg.pushedSeq ?? 0;
     if (out.length) {
       const blobs = [];
       for (const part of chunk(out, BATCH_CHARS)) blobs.push(await seal(cfg.key, { v: 1, changes: part }));
@@ -139,19 +182,24 @@ async function run() {
         if (!res.ok) throw new Error(`send failed (${res.status})`);
       }
       pushed = Math.min(Math.max(...out.map((c) => /** @type {number} */ (c.r._u))), started - OVERLAP_MS);
+      pushedSeq = pushedMark(out.filter((c) => c.r._d === me), pushedSeq, started, OVERLAP_MS);
     }
 
     let cursor = cfg.cursor;
     let merged = 0;
+    let otherAt = cfg.otherAt;
     for (let more = true; more;) {
       const res = await fetch(`${base}/pull?after=${cursor}`, { headers: auth });
       if (!res.ok) throw new Error(`fetch failed (${res.status})`);
       const body = await res.json();
       for (const it of body.items ?? []) {
-        if (it.dev === me) continue;
+        // This phone's own earlier changes come back too: after "use the
+        // other phone's records" or deleting all data, they are not here any
+        // more. Merging a record this phone already has changes nothing.
         /** @type {any} */
         let payload;
         try { payload = await open(cfg.key, it.blob); } catch { continue; } // not ours, or damaged: skip it
+        if (it.dev !== me) otherAt = Date.now();
         if (payload?.v === 1 && Array.isArray(payload.changes)) merged += await db.syncData.apply(payload.changes);
       }
       cursor = Number(body.last ?? cursor);
@@ -159,7 +207,7 @@ async function run() {
     }
 
     const now = await syncConfig();
-    if (now && now.fid === cfg.fid) await db.meta.set('sync', { ...now, pushed: Math.max(now.pushed, pushed), cursor, sendAll: false });
+    if (now && now.fid === cfg.fid) await db.meta.set('sync', { ...now, pushed: Math.max(now.pushed, pushed), pushedSeq: Math.max(now.pushedSeq ?? 0, pushedSeq), cursor, sendAll: false, ...(otherAt ? { otherAt } : {}) });
     await db.meta.set('syncStatus', /** @type {SyncStatus} */ ({ okAt: Date.now() }));
     if (merged > 0) globalThis.dispatchEvent?.(new CustomEvent('whendose:synced', { detail: { merged } }));
     return { status: 'ok', merged };

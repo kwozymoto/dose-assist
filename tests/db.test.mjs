@@ -6,7 +6,7 @@ import * as db from '../js/db.js';
 
 const NOW = Date.UTC(2026, 9, 13, 23, 0);
 /** A record without its sync stamps (tested on their own below). */
-const unstamped = (r) => { if (!r) return r; const { _u: _a, _d: _b, ...rest } = r; return rest; };
+const unstamped = (r) => { if (!r) return r; const { _u: _a, _d: _b, _s: _c, ...rest } = r; return rest; };
 
 /** A fresh, empty database for every test. */
 beforeEach(async () => {
@@ -301,5 +301,52 @@ describe('sync stamps', () => {
     assert.equal(got._d, db.deviceId());
     const snap = await db.syncData.snapshot();
     assert.ok(snap.children.some((x) => x.id === 'legacy'));
+  });
+});
+
+describe('audit fixes: storage', () => {
+  test('stamps carry an increasing change counter', async () => {
+    const a = child(); const b = child();
+    await db.children.save(a); await db.children.save(b);
+    const [x, y] = [await db.children.get(a.id), await db.children.get(b.id)];
+    assert.ok(y._s > x._s);
+  });
+  test('a restore records when, so it can win over the other phone\'s delete', async () => {
+    const c = child(); await db.children.save(c);
+    const d = doseRecord(c.id); await db.doses.add(d, 'Mum');
+    await db.doses.remove(d.id, { by: 'Mum', at: NOW });
+    await db.doses.restore(d.id, { by: 'Mum', at: NOW + 1 });
+    assert.equal((await db.doses.get(d.id)).restoredAt, NOW + 1);
+  });
+  test('a backup never holds the phone link, and a restore keeps this phone\'s link', async () => {
+    await db.meta.set('sync', { fid: 'F', key: 'SECRET' });
+    await db.meta.set('caregiverName', 'Mum');
+    const file = JSON.parse(JSON.stringify(await db.exportAll(NOW)));
+    assert.equal(JSON.stringify(file).includes('SECRET'), false);
+    assert.equal(file.data.meta.some((m) => m.key === 'caregiverName'), true);
+    await db.meta.set('sync', { fid: 'MINE', key: 'K2' });
+    file.data.meta.push({ key: 'sync', value: { fid: 'OLD', key: 'OLDKEY' } });
+    await db.importAll(file);
+    assert.deepEqual(await db.meta.get('sync'), { fid: 'MINE', key: 'K2' });
+  });
+  test('moveChild puts one child\'s doses and weights on the other and archives the first', async () => {
+    const a = child({ id: 'aaa' }); const b = child({ id: 'bbb' });
+    await db.children.save(a); await db.children.save(b);
+    const d = doseRecord('bbb'); await db.doses.add(d, 'Dad');
+    await db.weights.add({ id: 'w', childId: 'bbb', kg: 12, recordedAt: NOW });
+    await db.syncData.moveChild('bbb', 'aaa', { by: 'Mum', at: NOW });
+    assert.equal((await db.doses.get(d.id)).childId, 'aaa');
+    assert.equal((await db.weights.latest('aaa')).kg, 12);
+    assert.ok((await db.children.get('bbb')).archivedAt);
+    assert.ok((await db.doses.audit(d.id)).some((e) => e.action === 'edit' && e.after?.childId === 'aaa'));
+  });
+  test('ids are made even where randomUUID is missing', async () => {
+    const orig = crypto.randomUUID;
+    try {
+      Object.defineProperty(crypto, 'randomUUID', { value: undefined, configurable: true });
+      assert.match(db.uid(), /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+    } finally {
+      Object.defineProperty(crypto, 'randomUUID', { value: orig, configurable: true });
+    }
   });
 });

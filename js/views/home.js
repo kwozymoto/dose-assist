@@ -13,6 +13,10 @@ import { formatTime, formatAmount } from '../format.js';
 import { timeZone } from '../clock.js';
 import { childDetail } from './child.js';
 import { undoDose } from './give.js';
+import { syncConfigured, syncConfig, syncStatus } from '../sync.js';
+import { doubleDoses } from '../syncchecks.js';
+import { EMERGENCY } from '../constants.js';
+import { formatWhen, formatAgo } from '../format.js';
 
 /** @typedef {import('../app.js').Ctx} Ctx */
 /** @typedef {import('../app.js').Screen} Screen */
@@ -42,7 +46,7 @@ export async function home(ctx) {
 
   // One child: their page is Home, so Dose now is the first thing seen.
   if (kids.length === 1) {
-    const after = [...node.childNodes];
+    const after = [...node.childNodes, addChildLink('Add another child')];
     const screen = await childDetail({ ...ctx, params: { id: kids[0].id } }, { asHome: true, lead: [], after });
     return { ...screen, title: 'WhenDose', back: false, tab: 'home' };
   }
@@ -59,12 +63,18 @@ export async function home(ctx) {
     node.append(childCard(child, rows, t));
   }
 
+  node.append(addChildLink('Add a child'));
   node.append(...notices);
   node.append(h('p', { class: 'muted small center' }, GUIDANCE.writeItDown.text));
 
   // Countdowns: refresh every 30 s, and exactly when the next wait ends.
   const untilNext = soonest === Infinity ? Infinity : soonest - now() + 500;
   return { title: 'WhenDose', node, tab: 'home', back: false, refreshEvery: Math.max(1000, Math.min(30000, untilNext)) };
+}
+
+/** @param {string} words */
+function addChildLink(words) {
+  return h('a', { class: 'btn btn-quiet', href: '#/child/new' }, icon('plus'), words);
 }
 
 /** "Good evening", with the little droplet. The words follow the local hour. @param {number} t */
@@ -105,7 +115,7 @@ function childCard(child, rows, t) {
     rows.length === 0
       ? h('p', { class: 'muted' }, 'No medicines yet.')
       : h('ul', { class: 'rows' }, rows.map((r) => statusRow(r.card))),
-    h('a', { class: 'btn btn-primary btn-big', href: `#/give?child=${child.id}` }, icon('plus'), `Give ${child.name} a dose`),
+    h('a', { class: 'btn btn-primary btn-big', href: `#/give?child=${child.id}` }, icon('plus'), `Log a dose for ${child.name}`),
   );
 }
 
@@ -124,6 +134,37 @@ export function statusRow(c) {
 async function banners(ctx) {
   const out = [];
   const t = now();
+
+  // The same medicine given twice by two people, too close together: only
+  // possible with linked phones (each phone's own stop screen stops its parent).
+  const kidsById = new Map((await db.children.list()).map((k) => [k.id, k]));
+  const dismissed = await db.meta.get('doubleSeen', /** @type {string[]} */ ([]));
+  for (const x of doubleDoses(await db.doses.all(), state.rules, t)) {
+    const key = `${x.ids.join('+')}:${x.ingredient}`;
+    if (dismissed.includes(key) || !kidsById.has(x.childId)) continue;
+    const kid = kidsById.get(x.childId);
+    out.push(h('div', { class: 'notice notice-danger', role: 'alert' },
+      h('strong', null, `${kid?.name ?? 'Your child'} had ${x.ingredient} twice, ${Math.max(1, Math.round(x.gapMs / 60000))} min apart`),
+      h('p', null, `Given by ${x.by[0] || 'one phone'} at ${formatWhen(x.first, t, timeZone())} and by ${x.by[1] || 'the other phone'} at ${formatWhen(x.second, t, timeZone())}. If ${kid?.name ?? 'your child'} may have had too much, call the Poisons Centre now.`),
+      h('a', { class: 'btn btn-danger btn-big', href: `tel:${EMERGENCY.poisons.tel}` }, icon('phone'), `Call Poisons Centre ${EMERGENCY.poisons.display}`),
+      h('button', { class: 'btn btn-secondary', type: 'button', onclick: async () => { await db.meta.set('doubleSeen', [...dismissed, key]); ctx.refresh(); } }, 'We have dealt with this'),
+    ));
+  }
+
+  // Linked phones: say when this phone may be missing the other's doses.
+  if (syncConfigured()) {
+    const cfg = await syncConfig();
+    if (cfg) {
+      const st = await syncStatus();
+      const stale = !st.okAt || (st.errorAt && st.errorAt > st.okAt) || Date.now() - st.okAt > 10 * 60 * 1000;
+      if (!cfg.otherAt) {
+        out.push(h('div', { class: 'notice' }, icon('share'), h('p', null, 'Your other phone has not linked yet. Until it does, doses given on it do not show here.'), h('a', { class: 'btn btn-secondary', href: '#/link' }, 'Linked phones')));
+      } else if (stale) {
+        out.push(h('div', { class: 'notice notice-warn', role: 'status' }, icon('warn'), h('p', null,
+          `Not checked with your other phone ${st.okAt ? `since ${formatAgo(st.okAt, Date.now())}` : 'yet'}. Doses given on it may be missing here. Check with your partner before giving.`)));
+      }
+    }
+  }
 
   const last = state.lastLogged;
   if (last && t - last.at < UNDO_MS) {

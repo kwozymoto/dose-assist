@@ -73,9 +73,12 @@ async function showCode(ctx, back) {
 async function linked(ctx, back) {
   const st = await syncStatus();
   const t = now();
-  const line = st.okAt
-    ? `In step with your other phone. Last checked ${formatAgo(st.okAt, t)}.`
-    : 'Linked. Waiting to reach the sync server.';
+  const cfgNow = await syncConfig();
+  const line = !cfgNow?.otherAt
+    ? 'Waiting for your other phone to link. On it, open the camera and point it at the code (Show the code, below).'
+    : st.okAt
+      ? `Last checked ${formatAgo(st.okAt, t)}. Last change from your other phone ${formatAgo(cfgNow.otherAt, t)}.`
+      : 'Linked. Waiting to reach the sync server.';
   const failing = st.errorAt && (!st.okAt || st.errorAt > st.okAt);
   const syncBtn = async () => {
     const r = await syncNow();
@@ -150,6 +153,19 @@ async function join(ctx, text) {
     }
   }
   const r = await joinFamily(text, { replace });
-  toast(r.status === 'ok' ? 'Linked. Your records are in step.' : 'Linked. Could not reach the sync server yet; it will keep trying.');
+  /** @type {Record<string, string>} */
+  const msg = {
+    'not-found': 'That code did not find the other phone. Check it was copied whole, or show the code again on the first phone.',
+    'wrong-key': 'That code is not quite right. Show the code again on the first phone and try once more.',
+    offline: 'Could not reach the sync server. Check your connection and try again. Nothing on this phone has changed.',
+  };
+  if (msg[r.status]) {
+    await confirmDialog({ title: 'Not linked', body: msg[r.status], confirm: 'OK', cancel: 'Close' });
+    return;
+  }
+  const merged = /** @type {any} */ (r).mergedChildren ?? 0;
+  toast(r.status === 'ok'
+    ? `Linked. Your records are in step.${merged ? ` ${merged === 1 ? 'A child on both phones was' : `${merged} children on both phones were`} made into one.` : ''}`
+    : 'Linked. Could not reach the sync server yet; it will keep trying.');
   ctx.go('/link');
 }

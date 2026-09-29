@@ -28,8 +28,9 @@ import { cardStatus, cap } from '../status.js';
 import { statusRow } from './home.js';
 import { BACKDATE_MAX_MS, SCHEDULE_PRESET_HOURS, UNDO_MS, WEIGHT_FRESH_MS, SHOW_TEST_NOTICE } from '../config.js';
 import { checkWeight } from '../engine/weight.js';
+import { laterConflict, pastOnly } from '../engine/later.js';
 import { weightCheckup, savedDoseCheckup, bottleCheckup } from '../engine/checkups.js';
-import { syncWithin, syncStatus } from '../sync.js';
+import { syncWithin, syncStatus, syncConfig } from '../sync.js';
 import { GUIDANCE } from '../content/guidance.js';
 import { EMERGENCY } from '../constants.js';
 import { refreshReminders } from '../reminders.js';
@@ -47,7 +48,9 @@ import { clampGap } from '../engine/gap.js';
 /**
  * The engine's answer plus the weight check. WEIGHT_LIMIT: the rules allow
  * it, but the 24-hour total would be over the mg per kg for this child.
- * @typedef {Omit<ProductCheck, 'status'> & {status: ProductCheck['status'] | 'WEIGHT_LIMIT', weight: {kg: number, weighedAt: number, by: [string, WeightCheck][]} | null}} ViewCheck
+ * LATER_CONFLICT: a dose recorded at an earlier time is fine looking back,
+ * but clashes with a dose already on record after it.
+ * @typedef {Omit<ProductCheck, 'status'> & {status: ProductCheck['status'] | 'WEIGHT_LIMIT' | 'LATER_CONFLICT', weight: {kg: number, weighedAt: number, by: [string, WeightCheck][]} | null, later?: import('../engine/later.js').LaterConflict}} ViewCheck
  */
 
 /**
@@ -69,6 +72,9 @@ import { clampGap } from '../engine/gap.js';
 let draft = null;
 /** @type {{doseId: string} | null} */
 let logged = null;
+/** How sending the last logged dose to a linked phone went. */
+/** @type {'ok' | 'error' | 'off' | 'timeout'} */
+let lastSend = 'off';
 
 /** @param {Ctx} ctx @returns {Promise<Screen>} */
 export async function give(ctx) {
@@ -85,12 +91,12 @@ async function giveStep(ctx) {
   if (step === 'done') return doneStep(ctx);
   if (!childId) return pickChild(kids);
   const child = await db.children.get(childId);
-  if (!child) { ctx.go('/give', { replace: true }); return { title: 'Give a dose', node: h('div') }; }
+  if (!child) { ctx.go('/give', { replace: true }); return { title: 'Log a dose', node: h('div') }; }
 
   const bottleId = q.get('bottle');
   if (!bottleId) return pickBottle(ctx, child, q.get('ingredients'), q.get('when') === 'earlier');
   const bottle = await db.bottles.get(bottleId);
-  if (!bottle) { ctx.go(`/give?child=${child.id}`, { replace: true }); return { title: 'Give a dose', node: h('div') }; }
+  if (!bottle) { ctx.go(`/give?child=${child.id}`, { replace: true }); return { title: 'Log a dose', node: h('div') }; }
 
   const base = `/give?child=${child.id}&bottle=${bottle.id}`;
   const valid = draft && draft.childId === child.id && draft.bottleId === bottle.id;
@@ -104,7 +110,7 @@ async function giveStep(ctx) {
   }
   if ((step === 'check' || step === 'confirm') && !valid) {
     ctx.go(base, { replace: true });
-    return { title: 'Give a dose', node: h('div') };
+    return { title: 'Log a dose', node: h('div') };
   }
   if (step === 'check') return checkStep(ctx, child, bottle, base);
   if (step === 'confirm') return confirmStep(ctx, child, bottle, base);
@@ -116,7 +122,7 @@ async function giveStep(ctx) {
 /** @param {Child[]} kids @returns {Screen} */
 function pickChild(kids) {
   if (kids.length === 0) {
-    return { title: 'Give a dose', back: '/', node: h('div', { class: 'empty' }, h('p', null, 'Add a child first.'), h('a', { class: 'btn btn-primary', href: '#/child/new' }, 'Add a child')) };
+    return { title: 'Log a dose', back: '/', node: h('div', { class: 'empty' }, h('p', null, 'Add a child first.'), h('a', { class: 'btn btn-primary', href: '#/child/new' }, 'Add a child')) };
   }
   return {
     title: 'Who is it for?',
@@ -249,6 +255,7 @@ async function amountStep(ctx, child, bottle, base) {
 
   const next = h('button', { class: 'btn btn-primary btn-big', type: 'submit' }, 'Continue');
   const form = h('form', {
+    novalidate: true,
     class: 'stack',
     onsubmit: (/** @type {Event} */ e) => {
       e.preventDefault();
@@ -260,7 +267,7 @@ async function amountStep(ctx, child, bottle, base) {
         const t2 = now();
         if (givenAt === null) { error.textContent = 'Enter the time it was given.'; error.hidden = false; at.focus(); return; }
         if (givenAt > t2) { error.textContent = 'That time is in the future.'; error.hidden = false; at.focus(); return; }
-        if (givenAt < t2 - BACKDATE_MAX_MS) { error.textContent = `You can go back up to ${formatDuration(BACKDATE_MAX_MS)}. For an older dose, log it now and then edit its time from the timeline.`; error.hidden = false; at.focus(); return; }
+        if (givenAt < t2 - BACKDATE_MAX_MS) { error.textContent = `You can go back up to ${formatDuration(BACKDATE_MAX_MS)}. A dose given longer ago than that no longer changes when the next dose can be given.`; error.hidden = false; at.focus(); return; }
       }
       draft = { childId: child.id, bottleId: bottle.id, amount: v, givenAt, override: null, remember: remember.checked };
       ctx.go(`${base}&step=check`);
@@ -329,7 +336,9 @@ async function runCheck(child, bottle) {
   const history = await db.doses.forChild(child.id);
   const at = draft.givenAt ?? now();
   const components = componentsForAmount(bottle, draft.amount);
-  const engine = checkDose({ components, rules: state.rules, history, now: at, child: engineChild(child), timeZone: timeZone() });
+  // An earlier time looks back from that time only; doses after it are checked below.
+  const backdated = draft.givenAt !== null;
+  const engine = checkDose({ components, rules: state.rules, history: backdated ? pastOnly(history, at) : history, now: at, child: engineChild(child), timeZone: timeZone() });
   const w = await db.weights.latest(child.id);
   /** @type {ViewCheck} */
   let check = { ...engine, weight: null };
@@ -340,10 +349,16 @@ async function runCheck(child, bottle) {
       const rule = ruleFor(ing);
       if (!rule) continue;
       const doseMg = components.filter((x) => x.ingredient === ing).reduce((s, x) => s + x.mg, 0);
-      by.push([ing, checkWeight({ rule, weightKg: w.kg, weighedAt: w.recordedAt, doseMg, windowMg: c.mgInLast24h, at, freshMs: WEIGHT_FRESH_MS })]);
+      // "Still right" renews the weight, as a fresh weighing would.
+      const freshFrom = Math.max(w.recordedAt, child.weightConfirmedAt ?? 0);
+      by.push([ing, checkWeight({ rule, weightKg: w.kg, weighedAt: freshFrom, doseMg, windowMg: c.mgInLast24h, at, freshMs: WEIGHT_FRESH_MS })]);
     }
     check = { ...engine, weight: { kg: w.kg, weighedAt: w.recordedAt, by } };
     if (engine.status === 'OK' && by.some(([, x]) => x.stop)) check.status = 'WEIGHT_LIMIT';
+  }
+  if (backdated && check.status === 'OK') {
+    const later = laterConflict({ components, rules: state.rules, history, at });
+    if (later) check = { ...check, status: 'LATER_CONFLICT', later };
   }
   return { check, components, history, at };
 }
@@ -368,7 +383,8 @@ async function checkStep(ctx, child, bottle, base) {
   const t = now();
   const backdated = d.givenAt !== null;
   const names = listNames(ingredientsOf(bottle));
-  const worst = (check.status === 'WEIGHT_LIMIT' ? Object.entries(check.perIngredient).find(([k]) => check.weight?.by.some(([i, x]) => i === k && x.stop)) : undefined)
+  const worst = (check.status === 'LATER_CONFLICT' ? Object.entries(check.perIngredient).find(([k]) => k === check.later?.ingredient) : undefined)
+    ?? (check.status === 'WEIGHT_LIMIT' ? Object.entries(check.perIngredient).find(([k]) => check.weight?.by.some(([i, x]) => i === k && x.stop)) : undefined)
     ?? Object.entries(check.perIngredient).find(([, c]) => c.status === check.status) ?? Object.entries(check.perIngredient)[0];
   const [ing, ic] = worst;
   const rule = ruleFor(ing);
@@ -410,6 +426,23 @@ async function checkStep(ctx, child, bottle, base) {
       lines: ['Check the amount against the label.'],
     };
     if (check.nextAllowedAt) view.lines.push(`This amount would be allowed from ${formatWhen(check.nextAllowedAt, t, tz)}.`);
+  } else if (check.status === 'LATER_CONFLICT' && check.later) {
+    const L = check.later;
+    const laterDose = history.find((x) => x.id === L.doseId);
+    const which = laterDose ? `the ${formatAmount(laterDose.amount, laterDose.bottle.form)} of ${laterDose.bottle.name} at ${formatWhen(L.givenAt, t, tz)}` : `the dose at ${formatWhen(L.givenAt, t, tz)}`;
+    view = {
+      title: 'That clashes with a later dose',
+      kind: L.reason === 'TOO_CLOSE' ? 'soon' : 'limit', icon: L.reason === 'TOO_CLOSE' ? 'clock' : 'stop',
+      big: L.reason === 'TOO_CLOSE'
+        ? `A dose at ${formatTime(at, tz)} would be only ${formatDuration(L.givenAt - at)} before ${which}.`
+        : L.reason === 'COUNT'
+          ? `With a dose at ${formatTime(at, tz)}, there would be more than ${rule?.maxDosesPer24h ?? 'the most'} doses of ${ing} in the 24 hours up to ${formatWhen(L.givenAt, t, tz)}.`
+          : `With a dose at ${formatTime(at, tz)}, ${ing} would be over ${rule ? formatMg(rule.maxMgPer24h) : 'the limit'} in the 24 hours up to ${formatWhen(L.givenAt, t, tz)}.`,
+      lines: [
+        rule ? `${cap(ing)} needs at least ${formatInterval(rule.minIntervalMinutes)} between doses.` : '',
+        'Check the time. If both doses were really given, record it so the times for the next dose are right.',
+      ].filter(Boolean),
+    };
   } else if (check.status === 'WEIGHT_LIMIT') {
     const [wIng, wc] = /** @type {[string, WeightCheck]} */ (check.weight?.by.find(([, x]) => x.stop));
     const day = /** @type {NonNullable<WeightCheck['perDay']>} */ (wc.perDay);
@@ -596,6 +629,8 @@ async function confirmStep(ctx, child, bottle, base) {
     draft = null;
     buzz(40);
     await refreshReminders();
+    // Linked phones: send it now, so the other phone's check sees it.
+    lastSend = await syncWithin(4000);
     ctx.go('/give?step=done', { replace: true });
   };
 
@@ -706,6 +741,9 @@ async function doneStep(ctx) {
       h('span', { class: 'status-icon' }, icon('tick')),
       h('p', null, h('strong', null, 'Logged. '), `${formatAmount(dose.amount, dose.bottle.form)} of ${dose.bottle.name} for ${child.name} at ${formatTime(dose.givenAt, tz)}.`),
     ),
+    lastSend === 'ok' ? h('p', { class: 'small muted center' }, icon('tick'), ' Sent to your other phone.')
+      : lastSend === 'off' ? null
+        : h('div', { class: 'notice notice-warn' }, icon('warn'), h('p', null, 'Not sent to your other phone yet: no connection. It will keep trying. Tell your partner you gave it.')),
     now() - dose.loggedAt < UNDO_MS ? h('button', { class: 'btn btn-quiet', onclick: undo }, icon('undo'), 'Undo this dose') : null,
     worrying ? h('div', { class: 'notice notice-danger', role: 'alert' },
       h('strong', null, GUIDANCE.overdose.title),
@@ -746,6 +784,10 @@ async function doneStep(ctx) {
  */
 async function syncLine(r, t) {
   if (r === 'off') return null;
+  const cfg = await syncConfig();
+  if (r === 'ok' && !cfg?.otherAt) {
+    return h('div', { class: 'notice notice-warn' }, icon('warn'), h('p', null, 'Your other phone has not linked yet, so its doses are not included. Check with your partner before giving.'));
+  }
   if (r === 'ok') return h('p', { class: 'small muted center' }, icon('tick'), ' Checked for doses from your other phone just now.');
   const st = await syncStatus();
   return h('div', { class: 'notice notice-warn', role: 'alert' }, icon('warn'), h('p', null,

@@ -5,15 +5,18 @@
 
 import { h, confirmDialog, toast } from '../dom.js';
 import * as db from '../db.js';
-import { state, engineChild } from '../state.js';
+import { state, engineChild, ruleFor } from '../state.js';
 import { componentsForAmount } from '../engine/amounts.js';
 import { now, timeZone } from '../clock.js';
 import { formatWhen, formatAmount, formatMg, toLocalInput, fromLocalInput, formatStrength, parseAmount, formatDuration } from '../format.js';
 import { checkDose } from '../engine/checkDose.js';
+import { laterConflict } from '../engine/later.js';
+import { checkWeight } from '../engine/weight.js';
 import { refreshReminders } from '../reminders.js';
-import { BACKDATE_MAX_MS } from '../config.js';
+import { BACKDATE_MAX_MS, WEIGHT_FRESH_MS } from '../config.js';
 
 import { field } from './child.js';
+import { EMERGENCY } from '../constants.js';
 
 /** @typedef {import('../app.js').Ctx} Ctx */
 /** @typedef {import('../app.js').Screen} Screen */
@@ -93,12 +96,30 @@ export async function doseEdit(ctx) {
       // Only what came before it: the question is whether this dose, at its
       // time, was within the limits.
       const when = changes.givenAt ?? dose.givenAt;
-      const others = (await db.doses.forChild(child.id)).filter((x) => x.id !== dose.id && x.givenAt <= when);
+      /** @type {{ingredient: string, mg: number}[]} */
+      const comps = changes.components ?? dose.components;
+      const all = await db.doses.forChild(child.id);
+      const others = all.filter((x) => x.id !== dose.id && x.givenAt <= when);
       const check = checkDose({
-        components: changes.components ?? dose.components, rules: state.rules, history: others,
+        components: comps, rules: state.rules, history: others,
         now: when, child: engineChild(child), timeZone: tz,
       });
-      if (check.status !== 'OK') warning = 'With this change, this dose is outside the usual limits. It will be recorded as you enter it. If your child may have had too much, call the Poisons Centre.';
+      // ...and the doses after it: moving a dose later, or making it bigger,
+      // can crowd the ones that followed.
+      const later = laterConflict({ components: comps, rules: state.rules, history: all, at: when, excludeId: dose.id });
+      // ...and the child's weight, as when logging.
+      const w = await db.weights.latest(child.id);
+      let overWeight = false;
+      if (w) {
+        for (const [ing, c] of Object.entries(check.perIngredient)) {
+          const rule = ruleFor(ing);
+          if (!rule) continue;
+          const doseMg = comps.filter((x) => x.ingredient === ing).reduce((a, x) => a + x.mg, 0);
+          const wc = checkWeight({ rule, weightKg: w.kg, weighedAt: Math.max(w.recordedAt, child.weightConfirmedAt ?? 0), doseMg, windowMg: c.mgInLast24h, at: when, freshMs: WEIGHT_FRESH_MS });
+          if (wc.stop || wc.perDay) overWeight = true;
+        }
+      }
+      if (check.status !== 'OK' || later || overWeight) warning = `With this change, this dose is outside the usual limits${later ? ' (it clashes with a later dose)' : overWeight && check.status === 'OK' ? ` for ${child.name}’s weight` : ''}. It will be recorded as you enter it. If your child may have had too much, call the Poisons Centre on ${EMERGENCY.poisons.display}.`;
     }
     // Would this change what the app allows right now? Moving a dose earlier
     // can lift a stop; say so, so it is never done by accident.
@@ -124,9 +145,18 @@ export async function doseEdit(ctx) {
   };
 
   const remove = async () => {
+    let lifts = '';
+    if (child) {
+      const all = await db.doses.forChild(child.id);
+      const t2 = now();
+      for (const ing of [...new Set(dose.components.map((c) => c.ingredient))]) {
+        const q = (/** @type {any[]} */ history) => checkDose({ components: [{ ingredient: ing }], rules: state.rules, history, now: t2, child: engineChild(child), timeZone: tz }).status;
+        if (q(all) !== 'OK' && q(all.filter((x) => x.id !== dose.id)) === 'OK') lifts += ` ${ing[0].toUpperCase()}${ing.slice(1)} is not allowed now; after deleting this, it will be. Only delete it if this dose was not really given.`;
+      }
+    }
     const ok = await confirmDialog({
       title: 'Delete this dose?',
-      body: 'It will stop counting toward limits and reminders. The record is kept, marked as deleted, and can be put back.',
+      body: `It will stop counting toward limits and reminders. The record is kept, marked as deleted, and can be put back.${lifts}`,
       confirm: 'Delete', danger: true, input: { label: 'Why? (optional)' },
     });
     if (!ok) return;
@@ -136,7 +166,7 @@ export async function doseEdit(ctx) {
     ctx.go(back);
   };
 
-  const node = h('form', { class: 'stack', onsubmit: save },
+  const node = h('form', { class: 'stack', onsubmit: save, novalidate: true },
     h('p', null, h('strong', null, child ? `${child.name}: ` : ''), h('strong', null, dose.bottle.name), ' · ', dose.bottle.components.map((c) => formatStrength(c, dose.bottle.form)).join(' + ')),
     field(`Amount (${dose.bottle.form === 'liquid' ? 'mL' : 'tablets'})`, 'e-amount', amount),
     field('Time given', 'e-at', at),

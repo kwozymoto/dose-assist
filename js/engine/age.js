@@ -38,3 +38,19 @@ function localDateUtc(now, timeZone) {
   const get = (type) => Number(parts.find((p) => p.type === type)?.value);
   return Date.UTC(get('year'), get('month') - 1, get('day'));
 }
+
+/** The app is for children: older than this, adult doses apply. */
+export const MAX_AGE_DAYS = 18 * 365 + 4;
+
+/**
+ * Is this weight far from what is usual at this age? A rough, generous band
+ * (half to double a typical weight) to catch typing slips such as 145 for
+ * 14.5, or grams for kilograms. Not a growth chart; the parent can confirm.
+ * @param {number} kg @param {number} ageDays
+ * @returns {boolean}
+ */
+export function weightLooksOdd(kg, ageDays) {
+  const y = Math.max(0, ageDays) / 365.25;
+  const typical = y < 1 ? 3.5 + 6.5 * y : y <= 10 ? 8 + 2 * y : 28 + 3 * (y - 10);
+  return kg < typical * 0.5 || kg > typical * 2;
+}

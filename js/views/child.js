@@ -11,6 +11,7 @@ import { formatWhen, formatTime, formatDate, formatAmount, formatMg, toLocalInpu
 import { doseNow } from './dosenow.js';
 import { refreshReminders } from '../reminders.js';
 import { DAY_MS } from '../engine/time.js';
+import { ageInDays, weightLooksOdd, MAX_AGE_DAYS } from '../engine/age.js';
 
 /** @typedef {import('../app.js').Ctx} Ctx */
 /** @typedef {import('../app.js').Screen} Screen */
@@ -65,7 +66,7 @@ export async function childDetail(ctx, opts = {}) {
       h('a', { class: 'btn btn-secondary', href: `#/child/${child.id}/summary` }, icon('share'), 'Share a summary'),
     ),
     h('h2', { id: 'timeline', tabindex: '-1' }, 'Timeline'),
-    timeline(all.filter((d) => showDeleted || !d.deletedAt), syms, t, tz),
+    timeline(all.filter((d) => showDeleted || !d.deletedAt), syms, t, tz, ctx),
     deletedCount > 0
       ? h('a', { class: 'btn btn-quiet', href: `#/child/${child.id}${showDeleted ? '' : '?deleted=1'}` }, showDeleted ? 'Hide deleted doses' : `Show deleted doses (${deletedCount})`)
       : null,
@@ -78,9 +79,9 @@ export async function childDetail(ctx, opts = {}) {
 
 /**
  * Doses and symptom entries, newest first, grouped by local day.
- * @param {DoseRecord[]} doses @param {SymptomEntry[]} syms @param {number} t @param {string} tz
+ * @param {DoseRecord[]} doses @param {SymptomEntry[]} syms @param {number} t @param {string} tz @param {Ctx} ctx
  */
-function timeline(doses, syms, t, tz) {
+function timeline(doses, syms, t, tz, ctx) {
   /** @type {{at: number, node: Node}[]} */
   const items = [];
   for (const d of doses) {
@@ -113,6 +114,16 @@ function timeline(doses, syms, t, tz) {
           s.notes ? h('span', { class: 'small' }, s.notes) : null,
           h('span', { class: 'small muted' }, s.by),
         ),
+        h('button', {
+          class: 'tl-del', type: 'button', 'aria-label': `Delete the ${formatTime(s.at, tz)} entry`,
+          onclick: async () => {
+            const ok = await confirmDialog({ title: 'Delete this entry?', body: `${s.temperatureC !== null ? `${s.temperatureC.toFixed(1)} °C` : 'Symptoms'} at ${formatWhen(s.at, t, tz)}.`, confirm: 'Delete', danger: true });
+            if (!ok) return;
+            await db.symptoms.remove(s.id, now());
+            toast('Entry deleted');
+            ctx.refresh();
+          },
+        }, icon('close')),
       ),
     });
   }
@@ -176,10 +187,16 @@ export async function childForm(ctx) {
     if (!n) { error.textContent = 'Enter a name.'; error.hidden = false; name.focus(); return; }
     error.hidden = true;
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dob.value) || dob.value > today) { error.textContent = 'Enter their date of birth. The app uses it to check age limits.'; error.hidden = false; dob.focus(); return; }
+    const days = ageInDays(dob.value, t, tz);
+    if (days > MAX_AGE_DAYS) { error.textContent = 'WhenDose is for children under 18. Check the year; for an adult, follow the packet.'; error.hidden = false; dob.focus(); return; }
     let kgVal = null;
     if (kg.value.trim()) {
       kgVal = Number(kg.value.replace(',', '.'));
       if (!Number.isFinite(kgVal) || kgVal <= 0 || kgVal > 200) { error.textContent = 'Enter the weight in kilograms, for example 14.5.'; error.hidden = false; kg.focus(); return; }
+      if (weightLooksOdd(kgVal, days)) {
+        const ok = await confirmDialog({ title: `Is ${kgVal} kg right?`, body: `That is unusual for a child of ${ageText(dob.value, t) || 'this age'}. The weight is used to check doses, so a slip matters. Check it is in kilograms.`, confirm: `Yes, ${kgVal} kg is right`, cancel: 'Let me fix it' });
+        if (!ok) { kg.focus(); return; }
+      }
     }
     /** @type {Child} */
     const child = { ...(editing ?? { id: db.uid(), createdAt: now() }), name: n, colour, dateOfBirth: dob.value, notes: notes.value.trim() };

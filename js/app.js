@@ -153,7 +153,8 @@ function paint(s) {
   top.replaceChildren(
     s.back ? h('a', { class: 'iconbtn', href: '#' + s.back, 'aria-label': 'Back' }, icon('back')) : h('span', { class: 'iconbtn-space' }),
     h('h1', { id: 'screen-title', tabindex: '-1' }, s.title),
-    h('a', { class: 'iconbtn call', href: `tel:${EMERGENCY.healthline.tel}`, 'aria-label': `Call Healthline, ${EMERGENCY.healthline.display}` }, icon('phone')),
+    // Healthline is in the footer of every screen; the title stays centred.
+    h('span', { class: 'iconbtn-space' }),
   );
   const main = /** @type {HTMLElement} */ (document.getElementById('view'));
   main.replaceChildren(s.node);

@@ -195,11 +195,19 @@ function customForm(_ctx, done, back, bare) {
       if (a !== b) return fail(`The two strengths for ${ingredient} do not match. Read them from the label again.`);
       components.push({ ingredient, strengthMg: a, strengthPer });
     }
+    // A brand name on the box whose medicine is not in the list above.
+    const named = knownIn(name.value, known);
+    if (named && !components.some((c) => c.ingredient === named)) {
+      return fail(`${name.value.trim()} has ${named} in it. Choose ${named} as the active ingredient, so it counts toward ${named} limits.`);
+    }
     const strength = components.map((c) => `${formatStrength(c, form.value)} ${c.ingredient}`).join(' + ');
+    const odd = unusualStrengths(components, form.value);
     error.hidden = true;
     const ok = await confirmDialog({
       title: 'Is this exactly what the label says?',
-      body: h('div', null, h('p', { class: 'strength' }, strength), photoUrl ? h('img', { src: photoUrl, alt: 'Your photo of the label', class: 'photo-check' }) : h('p', { class: 'small' }, 'Tip: add a photo of the label so anyone giving a dose can check it.')),
+      body: h('div', null, h('p', { class: 'strength' }, strength),
+        odd.length ? h('p', { class: 'notice notice-warn' }, `${odd.join(' ')} Check the mg and the mL on the label once more.`) : null,
+        photoUrl ? h('img', { src: photoUrl, alt: 'Your photo of the label', class: 'photo-check' }) : h('p', { class: 'small' }, 'Tip: add a photo of the label so anyone giving a dose can check it.')),
       confirm: 'Yes, it matches the label',
       cancel: 'Let me check',
     });
@@ -230,7 +238,12 @@ function customForm(_ctx, done, back, bare) {
 
 /* Other names for ingredients the app tracks, so they cannot be entered as
    free text and escape the limits. Names, not doses. */
-const ALIASES = { acetaminophen: 'paracetamol', apap: 'paracetamol' };
+const ALIASES = {
+  acetaminophen: 'paracetamol', apap: 'paracetamol',
+  panadol: 'paracetamol', pamol: 'paracetamol', dolomol: 'paracetamol', calpol: 'paracetamol', tylenol: 'paracetamol',
+  paracare: 'paracetamol', parafast: 'paracetamol', panamax: 'paracetamol',
+  nurofen: 'ibuprofen', brufen: 'ibuprofen', advil: 'ibuprofen', fenpaed: 'ibuprofen', motrin: 'ibuprofen', ibugesic: 'ibuprofen',
+};
 
 /**
  * The tracked ingredient a free-text entry names, if any.
@@ -244,6 +257,26 @@ export function knownIn(text, known) {
     if (alias && known.includes(alias)) return alias;
   }
   return null;
+}
+
+/**
+ * Strengths of tracked ingredients that match no product we know, in words.
+ * Not a stop: new strengths do appear; a typo (25 for 250) is far likelier.
+ * @param {{ingredient: string, strengthMg: number, strengthPer: number}[]} components @param {string} formValue
+ */
+function unusualStrengths(components, formValue) {
+  const liquid = formValue === 'liquid';
+  const out = [];
+  for (const c of components) {
+    const same = (state.products?.products ?? []).filter((p) => (p.form === 'liquid') === liquid)
+      .flatMap((p) => p.components).filter((x) => x.ingredient === c.ingredient);
+    if (!same.length) continue;
+    const per = (/** @type {{strengthMg: number, strengthPer: number}} */ x) => x.strengthMg / x.strengthPer;
+    if (same.some((x) => Math.abs(per(x) - per(c)) < 0.01)) continue;
+    const usual = [...new Set(same.map((x) => formatStrength(x, formValue)))].join(', ');
+    out.push(`${formatStrength(c, formValue)} is not a strength of ${c.ingredient} we know (usual: ${usual}).`);
+  }
+  return out;
 }
 
 /** Resize a photo to at most 1000 px so it stores small. @param {File} file */

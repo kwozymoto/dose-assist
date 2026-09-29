@@ -51,7 +51,7 @@ describe('mergeRecord', () => {
   });
   test('a later restore undoes a delete', () => {
     const local = rec('d', 5, 'me', { deletedAt: 5 });
-    assert.deepEqual(mergeRecord('doses', local, rec('d', 6, 'x', { deletedAt: null })), rec('d', 6, 'x', { deletedAt: null }));
+    assert.deepEqual(mergeRecord('doses', local, rec('d', 6, 'x', { deletedAt: null, restoredAt: 6 })), rec('d', 6, 'x', { deletedAt: null, restoredAt: 6 }));
   });
 
   test('property: two phones end up the same, whatever the order they merge in', () => {
@@ -73,13 +73,13 @@ describe('outgoing', () => {
       children: [rec('c1', 12, 'me')],
       meta: [{ key: 'theme', value: 'dark' }],
     };
-    const out = outgoing(data, 'me', 6);
+    const out = outgoing(data, 'me', { seq: 0, time: 6 });
     assert.deepEqual(out.map((c) => `${c.s}:${c.r.id}`).sort(), ['children:c1', 'doses:d2']);
     assert.equal(Math.max(...out.map((c) => c.r._u)), 12);
   });
   test('a new pairing sends everything once, whichever phone made it', () => {
     const data = { doses: [rec('d1', 5, 'me'), rec('d3', 9, 'other'), { id: 'd4' }] };
-    assert.deepEqual(outgoing(data, 'me', 0, { all: true }).map((c) => c.r.id), ['d1', 'd3']);
+    assert.deepEqual(outgoing(data, 'me', { seq: 0, time: 0 }, { all: true }).map((c) => c.r.id), ['d1', 'd3']);
   });
   test('meta and photos never sync', () => {
     assert.ok(!SYNCED_STORES.includes('meta'));

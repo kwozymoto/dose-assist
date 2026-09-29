@@ -337,6 +337,11 @@ textarea.input { min-height: 96px; }
 .tl-time { font-weight: 750; min-width: 4.6em; }
 .tl-main { display: flex; flex-direction: column; min-width: 0; }
 .tl-deleted .tl-main strong { text-decoration: line-through; }
+.tl-symptom { align-items: flex-start; }
+.tl-symptom .tl-main { flex: 1; }
+.tl-del { flex: none; width: 44px; height: 44px; margin: -10px -8px -10px 0; display: grid; place-items: center; border: 0; background: none; color: var(--muted); border-radius: 50%; }
+.tl-del:hover, .tl-del:focus-visible { color: var(--danger-text); background: color-mix(in srgb, currentColor 10%, transparent); }
+.tl-del svg { width: 20px; height: 20px; }
 .tl-deleted { opacity: 0.75; }
 .audit { margin: 0; padding-left: 1.2em; color: var(--muted); font-size: 0.95rem; display: flex; flex-direction: column; gap: 4px; }
 .summary { white-space: pre-wrap; font: 0.95rem/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background: var(--surface); color: var(--text); border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin: 0; overflow-x: auto; }
@@ -618,3 +623,6 @@ html, body { overflow-x: clip; }
 /* ---------- linked phones ---------- */
 .qr { display: grid; place-items: center; padding: 16px; border-radius: var(--r-card); background: var(--surface); }
 .qr svg { width: min(100%, 280px); height: auto; display: block; }
+
+/* A danger notice's paragraphs keep their own height, so its call button stays in view. */
+.notice-danger > p { flex: none; }

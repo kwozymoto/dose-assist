@@ -67,6 +67,7 @@ export async function sources(_ctx) {
     h('section', { class: 'stack-sm' },
       h('h2', null, 'Privacy'),
       h('p', null, 'Everything stays on this phone: no account, no analytics, no advertising. If reminders with the app closed are switched on, the reminder server receives only encrypted messages and the times to send them. It cannot read which child, which medicine or which dose.'),
+      h('p', null, 'If you link a second phone, the records are locked on each phone before they are sent, with a key only your phones have (it travels in the QR code). The sync server stores and passes on locked records; it cannot read them.'),
     ),
   );
   return { title: 'Sources and about', back: '/help', node, tab: 'help' };

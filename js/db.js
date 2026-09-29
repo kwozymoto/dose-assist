@@ -214,7 +214,15 @@ const put = (store, value, opts = {}) => tx([store], 'readwrite', (t) => done(t.
 /** @param {string} store @param {string} index @param {string} key @returns {Promise<any[]>} */
 const byIndex = (store, index, key) => tx([store], 'readonly', (t) => done(t.objectStore(store).index(index).getAll(key)));
 
-export const uid = () => crypto.randomUUID();
+export const uid = () => {
+  if (typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+  // Plain-http test addresses have no randomUUID; make a v4 UUID from random bytes.
+  const b = crypto.getRandomValues(new Uint8Array(16));
+  b[6] = (b[6] & 0x0f) | 0x40;
+  b[8] = (b[8] & 0x3f) | 0x80;
+  const x = [...b].map((v) => v.toString(16).padStart(2, '0')).join('');
+  return `${x.slice(0, 8)}-${x.slice(8, 12)}-${x.slice(12, 16)}-${x.slice(16, 20)}-${x.slice(20)}`;
+};
 
 /** This phone's id for sync stamps. Kept in localStorage; a phone with no storage gets one per session. */
 let DEVICE = '';
@@ -222,11 +230,24 @@ export function deviceId() {
   if (DEVICE) return DEVICE;
   try {
     DEVICE = localStorage.getItem('da.deviceId') || '';
-    if (!DEVICE) { DEVICE = crypto.randomUUID(); localStorage.setItem('da.deviceId', DEVICE); }
+    if (!DEVICE) { DEVICE = uid(); localStorage.setItem('da.deviceId', DEVICE); }
   } catch {
-    DEVICE = crypto.randomUUID();
+    DEVICE = uid();
   }
   return DEVICE;
+}
+
+/** This phone's change counter: always goes up, whatever the clock does (sync sends by it). */
+let SEQ = 0;
+function nextSeq() {
+  try {
+    const n = Math.max(Number(localStorage.getItem('da.seq') || 0), SEQ) + 1;
+    localStorage.setItem('da.seq', String(n));
+    SEQ = n;
+  } catch {
+    SEQ += 1;
+  }
+  return SEQ;
 }
 
 const SYNCED = new Set(/** @type {readonly string[]} */ (SYNCED_STORES));
@@ -238,7 +259,7 @@ export const setOnWrite = (f) => { onWrite = f; };
 const stamp = (store, value) => {
   if (!SYNCED.has(store)) return value;
   queueMicrotask(onWrite);
-  return { ...value, _u: Date.now(), _d: deviceId() };
+  return { ...value, _u: Date.now(), _d: deviceId(), _s: nextSeq() };
 };
 
 /* ---------------- children ---------------- */
@@ -385,7 +406,7 @@ export const doses = {
       const before = await done(t.objectStore('doses').get(id));
       if (!before) throw new Error(`no dose ${id}`);
       if (!before.deletedAt) return before;
-      const after = { ...before, deletedAt: null };
+      const after = { ...before, deletedAt: null, restoredAt: who.at };
       t.objectStore('doses').put(stamp('doses', after));
       t.objectStore('audit').put(stamp('audit', /** @type {DoseAudit} */ ({ id: uid(), doseId: id, action: 'restore', before: { deletedAt: before.deletedAt }, after: { deletedAt: null }, at: who.at, by: who.by, ...(who.reason ? { reason: who.reason } : {}) })));
       return after;
@@ -535,6 +556,31 @@ export const syncData = {
   async clear() {
     await tx([...SYNCED_STORES], 'readwrite', (t) => { for (const s of SYNCED_STORES) t.objectStore(s).clear(); });
   },
+  /**
+   * The same child entered on two phones: move everything from `from` onto
+   * `to` (doses with an audit line, weights, symptoms, reminders, saved doses
+   * and gaps), then archive `from`. Stamped, so the other phone does the same.
+   * @param {string} from @param {string} to @param {{by: string, at: number}} who
+   */
+  async moveChild(from, to, who) {
+    await tx(['children', 'doses', 'audit', 'weights', 'symptoms', 'reminders'], 'readwrite', async (t) => {
+      const kids = t.objectStore('children');
+      const a = await done(kids.get(from));
+      const b = await done(kids.get(to));
+      if (!a || !b) return;
+      for (const store of ['weights', 'symptoms', 'reminders']) {
+        const st = t.objectStore(store);
+        for (const r of await done(st.index('childId').getAll(from))) st.put(stamp(store, { ...r, childId: to }));
+      }
+      const ds = t.objectStore('doses');
+      for (const d of await done(ds.index('childId').getAll(from))) {
+        ds.put(stamp('doses', { ...d, childId: to }));
+        t.objectStore('audit').put(stamp('audit', { id: uid(), doseId: d.id, action: 'edit', before: { childId: from }, after: { childId: to }, at: who.at, by: who.by, reason: 'The same child was on both linked phones; merged into one.' }));
+      }
+      kids.put(stamp('children', { ...b, usualDoses: { ...(a.usualDoses ?? {}), ...(b.usualDoses ?? {}) }, gapMinutes: { ...(a.gapMinutes ?? {}), ...(b.gapMinutes ?? {}) } }));
+      kids.put(stamp('children', { ...a, archivedAt: who.at, mergedInto: to }));
+    });
+  },
   /** Give every record from before sync a stamp from this phone, so it is sent once. */
   async stampAll() {
     await tx([...SYNCED_STORES], 'readwrite', async (t) => {
@@ -550,6 +596,9 @@ export const syncData = {
 
 export const EXPORT_FORMAT = 'dose-assist-export';
 
+/** Settings that belong to this phone and its link, never to a backup file. */
+const PHONE_ONLY_META = ['sync', 'syncStatus', 'pushSentFor', 'fcmToken'];
+
 /** Everything, for a backup file. @param {number} at */
 export async function exportAll(at) {
   /** @type {Record<string, any[]>} */
@@ -557,6 +606,9 @@ export async function exportAll(at) {
   await tx(STORES, 'readonly', async (t) => {
     for (const s of STORES) data[s] = await done(t.objectStore(s).getAll());
   });
+  // The phone link (family key) never goes in a backup: whoever had the file
+  // could read the family's synced records. Re-link after moving phones.
+  data.meta = (data.meta ?? []).filter((m) => !PHONE_ONLY_META.includes(m.key));
   return { format: EXPORT_FORMAT, version: DB_VERSION, exportedAt: at, data };
 }
 
@@ -569,11 +621,22 @@ export async function importAll(file) {
   if (!file || file.format !== EXPORT_FORMAT || typeof file.data !== 'object') throw new Error('This is not a WhenDose backup file.');
   if (typeof file.version !== 'number' || file.version > DB_VERSION) throw new Error('This backup is from a newer version of the app. Update the app first.');
   await tx(STORES, 'readwrite', async (t) => {
+    // This phone's link survives a restore (and a backup's own link, if an
+    // old file has one, is ignored).
+    const keepMeta = [];
+    for (const k of PHONE_ONLY_META) {
+      const row = await done(t.objectStore('meta').get(k));
+      if (row) keepMeta.push(row);
+    }
     for (const s of STORES) {
       const store = t.objectStore(s);
       store.clear();
-      for (const row of file.data[s] ?? []) store.put(row);
+      for (const row of file.data[s] ?? []) {
+        if (s === 'meta' && PHONE_ONLY_META.includes(row?.key)) continue;
+        store.put(row);
+      }
     }
+    for (const row of keepMeta) t.objectStore('meta').put(row);
   });
 }
 

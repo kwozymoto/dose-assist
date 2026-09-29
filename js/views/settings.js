@@ -130,7 +130,9 @@ export async function settings(ctx) {
     ),
     h('section', { class: 'stack-sm' },
       h('h2', null, 'Your data'),
-      h('p', { class: 'small' }, 'Everything is stored only on this phone. A backup file lets you move it to a new phone. Keep it private: it holds your children’s health records.'),
+      h('p', { class: 'small' }, syncConfigured()
+        ? 'Everything is stored on this phone and your linked phone. What passes between them is locked on the phone first; the sync server cannot read it. A backup file lets you move to a new phone. Keep it private: it holds your children’s health records.'
+        : 'Everything is stored only on this phone. A backup file lets you move it to a new phone. Keep it private: it holds your children’s health records.'),
       h('button', { class: 'btn btn-secondary', onclick: exportData }, 'Save a backup file'),
       h('button', { class: 'btn btn-secondary', onclick: () => importInput.click() }, 'Restore from a backup file'),
       importInput,

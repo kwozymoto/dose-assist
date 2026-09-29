@@ -13,10 +13,12 @@ export const SYNCED_STORES = /** @type {const} */ (['children', 'weights', 'bott
 
 /** Fields that belong to one phone only. `planned` is when this phone's reminder is next due; each phone works it out itself. */
 const LOCAL_FIELDS = /** @type {Record<string, string[]>} */ ({ reminders: ['planned'] });
+/** `_s` is this phone's own change counter (db.js); it means nothing on another phone. */
+const NEVER_SENT = ['_s'];
 
 /**
  * @typedef {{id: string, _u?: number, _d?: string, [k: string]: unknown}} Rec
- * @typedef {{s: string, r: Rec}} Change
+ * @typedef {{s: string, r: Rec, seq?: number, at?: number}} Change
  */
 
 /** Is `a` a later change than `b`? @param {Rec} a @param {Rec | undefined} b */
@@ -34,15 +36,36 @@ export function newer(a, b) {
  * @returns {Rec | null}
  */
 export function mergeRecord(store, local, remote) {
+  if (store === 'doses' && local && (local.deletedAt || remote.deletedAt || local.restoredAt || remote.restoredAt)) {
+    // A deletion is not undone by an edit made on the other phone at about
+    // the same time; only an explicit restore (restoredAt) after it undoes it.
+    const del = deletionOf(local, remote);
+    if (!newer(remote, local)) {
+      return (local.deletedAt ?? null) === del.deletedAt ? null : { ...local, deletedAt: del.deletedAt, restoredAt: del.restoredAt };
+    }
+    const out = keepLocal(store, local, { ...remote });
+    out.deletedAt = del.deletedAt;
+    if (del.restoredAt !== null) out.restoredAt = del.restoredAt;
+    return out;
+  }
   if (local && !newer(remote, local)) return null;
-  const keep = LOCAL_FIELDS[store] ?? [];
-  if (!local || keep.length === 0) return { ...remote };
-  const out = { ...remote };
-  for (const k of keep) {
+  return local ? keepLocal(store, local, { ...remote }) : { ...remote };
+}
+
+/** @param {string} store @param {Rec} local @param {Rec} out */
+function keepLocal(store, local, out) {
+  for (const k of LOCAL_FIELDS[store] ?? []) {
     if (k in local) out[k] = local[k];
     else delete out[k];
   }
   return out;
+}
+
+/** The latest of the two phones' deletes and restores decides. @param {Rec} a @param {Rec} b */
+function deletionOf(a, b) {
+  const d = Math.max(Number(a.deletedAt ?? 0), Number(b.deletedAt ?? 0));
+  const r = Math.max(Number(a.restoredAt ?? 0), Number(b.restoredAt ?? 0));
+  return { deletedAt: d > r ? d : null, restoredAt: r > 0 ? r : null };
 }
 
 /**
@@ -50,18 +73,20 @@ export function mergeRecord(store, local, remote) {
  * @param {string} store @param {Rec} r @returns {Rec}
  */
 export function forWire(store, r) {
-  const keep = LOCAL_FIELDS[store] ?? [];
-  if (keep.length === 0) return r;
+  const drop = [...(LOCAL_FIELDS[store] ?? []), ...NEVER_SENT].filter((k) => k in r);
+  if (drop.length === 0) return r;
   const out = { ...r };
-  for (const k of keep) delete out[k];
+  for (const k of drop) delete out[k];
   return out;
 }
 
 /**
- * This phone's changes since `since`, from every shared store.
+ * This phone's changes not yet sent, from every shared store: by its own
+ * change counter (`_s`), so a phone clock set back or forward cannot hide a
+ * change. Records stamped before the counter existed go by time, once.
  * @param {Record<string, Rec[]>} data  store name -> all its records
  * @param {string} me  this phone's id
- * @param {number} since
+ * @param {{seq: number, time: number}} since  the counter and time already sent up to
  * @param {{all?: boolean}} [opts]  all: every stamped record, whichever phone made it (a new pairing)
  * @returns {Change[]}
  */
@@ -71,10 +96,25 @@ export function outgoing(data, me, since, opts = {}) {
   for (const s of SYNCED_STORES) {
     for (const r of data[s] ?? []) {
       if (typeof r._u !== 'number') continue;
-      if (opts.all || (r._d === me && r._u > since)) out.push({ s, r: forWire(s, r) });
+      const fresh = typeof r._s === 'number' ? r._s > since.seq : r._u > since.time;
+      if (opts.all || (r._d === me && fresh)) out.push({ s, r: forWire(s, r), seq: typeof r._s === 'number' ? r._s : undefined, at: r._u });
     }
   }
   return out;
+}
+
+/**
+ * How far the counter can be marked as sent: past everything sent, except
+ * changes stamped in the last `guardMs` (one of those could have been
+ * written while the list was being read); those go again next time.
+ * @param {Array<{seq?: number, at?: number, r: Rec}>} sent @param {number} prev @param {number} started @param {number} guardMs
+ */
+export function pushedMark(sent, prev, started, guardMs) {
+  const counted = sent.filter((c) => typeof (c.seq ?? c.r._s) === 'number');
+  if (!counted.length) return prev;
+  const recent = counted.filter((c) => Number(c.at ?? c.r._u) > started - guardMs).map((c) => Number(c.seq ?? c.r._s));
+  if (recent.length) return Math.max(prev, Math.min(...recent) - 1);
+  return Math.max(prev, ...counted.map((c) => Number(c.seq ?? c.r._s)));
 }
 
 /**
