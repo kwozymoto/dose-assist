@@ -1,0 +1,16 @@
+name = "whendose-sync"
+main = "src/index.js"
+compatibility_date = "2026-08-01"
+
+# Where linked phones call from: the Android app (Capacitor serves the app
+# at https://localhost), and the web app during local testing.
+[vars]
+ALLOWED_ORIGINS = "https://localhost,http://localhost:8741,http://127.0.0.1:8741"
+
+[[durable_objects.bindings]]
+name = "FAMILIES"
+class_name = "Family"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Family"]

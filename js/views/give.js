@@ -29,6 +29,7 @@ import { statusRow } from './home.js';
 import { BACKDATE_MAX_MS, SCHEDULE_PRESET_HOURS, UNDO_MS, WEIGHT_FRESH_MS, SHOW_TEST_NOTICE } from '../config.js';
 import { checkWeight } from '../engine/weight.js';
 import { weightCheckup, savedDoseCheckup, bottleCheckup } from '../engine/checkups.js';
+import { syncWithin, syncStatus } from '../sync.js';
 import { GUIDANCE } from '../content/guidance.js';
 import { EMERGENCY } from '../constants.js';
 import { refreshReminders } from '../reminders.js';
@@ -521,6 +522,9 @@ function overrideCovers(d, check) {
 /** @param {Ctx} ctx @param {Child} child @param {Bottle} bottle @param {string} base @returns {Promise<Screen>} */
 async function confirmStep(ctx, child, bottle, base) {
   const d = /** @type {Draft} */ (draft);
+  // Linked phones: fetch the other phone's doses before checking, so a dose
+  // just logged there counts here. A few seconds at most.
+  const synced = await syncWithin(3000);
   const { check, components } = await runCheck(child, bottle);
   // Something changed since the check (another dose logged, the clock moved
   // past a limit): go back and show the new answer. An override covers only
@@ -536,6 +540,7 @@ async function confirmStep(ctx, child, bottle, base) {
   const warnings = warningList(check, child, bottle);
   const weightNotes = weightCautions(check, child, tz);
   const checkNotes = await checkupNotes(ctx, child, bottle, d, base, t);
+  const syncNote = await syncLine(synced, t);
   const byError = h('p', { class: 'error', role: 'alert', hidden: true }, 'Enter who gave it, so everyone sharing care can see.');
   by.addEventListener('input', () => { byError.hidden = true; });
 
@@ -543,7 +548,8 @@ async function confirmStep(ctx, child, bottle, base) {
     e.preventDefault();
     const btn = /** @type {HTMLButtonElement} */ (document.getElementById('log-btn'));
     btn.disabled = true;
-    // Last look, at the real moment of logging.
+    // Last look, at the real moment of logging (and one more fetch from a linked phone).
+    await syncWithin(2000);
     const again = await runCheck(child, bottle);
     const tooOld = d.givenAt !== null && d.givenAt < now() - BACKDATE_MAX_MS;
     if (tooOld || !overrideCovers(d, again.check)) {
@@ -616,6 +622,7 @@ async function confirmStep(ctx, child, bottle, base) {
           c.lastDose ? `Last ${k}: ${formatWhen(c.lastDose.givenAt, t, tz)} (${formatAgo(c.lastDose.givenAt, t)}). ` : '',
           `In the last 24 hours: ${c.dosesInLast24h} ${c.dosesInLast24h === 1 ? 'dose' : 'doses'}, ${formatMg(c.mgInLast24h)}.`))))
       : null,
+    syncNote,
     checkNotes,
     weightNotes,
     warnings,
@@ -731,6 +738,18 @@ async function doneStep(ctx) {
     ),
   );
   return { title: 'Dose logged', back: '/', node };
+}
+
+/**
+ * Whether doses from a linked phone were checked. Only for linked phones.
+ * @param {'ok' | 'error' | 'off' | 'timeout'} r @param {number} t
+ */
+async function syncLine(r, t) {
+  if (r === 'off') return null;
+  if (r === 'ok') return h('p', { class: 'small muted center' }, icon('tick'), ' Checked for doses from your other phone just now.');
+  const st = await syncStatus();
+  return h('div', { class: 'notice notice-warn', role: 'alert' }, icon('warn'), h('p', null,
+    `Could not check for doses from your other phone${st.okAt ? ` (last checked ${formatAgo(st.okAt, t)})` : ''}. Check with them before giving.`));
 }
 
 /**

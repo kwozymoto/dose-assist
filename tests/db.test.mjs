@@ -5,6 +5,8 @@ import assert from 'node:assert/strict';
 import * as db from '../js/db.js';
 
 const NOW = Date.UTC(2026, 9, 13, 23, 0);
+/** A record without its sync stamps (tested on their own below). */
+const unstamped = (r) => { if (!r) return r; const { _u: _a, _d: _b, ...rest } = r; return rest; };
 
 /** A fresh, empty database for every test. */
 beforeEach(async () => {
@@ -72,7 +74,7 @@ describe('doses', () => {
   test('add writes the dose and a create audit entry', async () => {
     const d = doseRecord('c1');
     await db.doses.add(d, 'Mum');
-    assert.deepEqual(await db.doses.get(d.id), d);
+    assert.deepEqual(unstamped(await db.doses.get(d.id)), d);
     const audit = await db.doses.audit(d.id);
     assert.equal(audit.length, 1);
     assert.equal(audit[0].action, 'create');
@@ -193,8 +195,8 @@ describe('export, import, delete', () => {
     await db.closeDb();
     globalThis.indexedDB = new IDBFactory();
     await db.importAll(file);
-    assert.deepEqual(await db.children.get(c.id), c);
-    assert.deepEqual(await db.doses.get(d.id), d);
+    assert.deepEqual(unstamped(await db.children.get(c.id)), c);
+    assert.deepEqual(unstamped(await db.doses.get(d.id)), d);
     assert.equal((await db.doses.audit(d.id)).length, 1);
     assert.equal(await db.meta.get('caregiverName'), 'Mum');
   });
@@ -232,5 +234,72 @@ describe('persistence', () => {
     await db.closeDb();
     assert.equal((await db.children.list()).length, 1);
     assert.equal((await db.doses.forChild(c.id)).length, 1);
+  });
+});
+
+describe('sync stamps', () => {
+  test('every write to a shared store is stamped with the time and this phone; settings are not', async () => {
+    const c = child();
+    await db.children.save(c);
+    const got = await db.children.get(c.id);
+    assert.equal(typeof got._u, 'number');
+    assert.equal(got._d, db.deviceId());
+    await db.meta.set('theme', 'dark');
+    const all = await db.exportAll(NOW);
+    assert.equal(all.data.meta.find((m) => m.key === 'theme')._u, undefined);
+  });
+
+  test('a dose and its audit entry are both stamped, and an edit restamps the dose', async () => {
+    const c = child();
+    await db.children.save(c);
+    const d = doseRecord(c.id);
+    await db.doses.add(d, 'Mum');
+    const first = await db.doses.get(d.id);
+    assert.equal(first._d, db.deviceId());
+    const audit = await db.doses.audit(d.id);
+    assert.equal(audit[0]._d, db.deviceId());
+    await new Promise((r) => setTimeout(r, 2));
+    await db.doses.edit(d.id, { amount: 4 }, { by: 'Mum', at: NOW });
+    assert.ok((await db.doses.get(d.id))._u > first._u);
+  });
+
+  test('a reminder\'s own bookkeeping (planned, fired) does not restamp it', async () => {
+    const r = { id: 'r1', childId: 'c', kind: 'next_allowed', ingredients: ['paracetamol'], createdAt: NOW };
+    await db.reminders.add(r);
+    const before = (await db.reminders.get('r1'))._u;
+    await new Promise((res) => setTimeout(res, 2));
+    await db.reminders.setPlanned('r1', { fireAt: NOW, rev: 'x' });
+    await db.reminders.markFired('r1', NOW);
+    assert.equal((await db.reminders.get('r1'))._u, before);
+  });
+
+  test('applying another phone\'s changes: new records added, newer versions win, older ignored, not restamped', async () => {
+    const c = child();
+    await db.children.save(c);
+    const mine = await db.children.get(c.id);
+    const theirs = { ...mine, name: 'Mia R', _u: mine._u + 1000, _d: 'other' };
+    const stale = { ...mine, name: 'Old', _u: 1, _d: 'other' };
+    const extra = { ...child(), _u: 5, _d: 'other' };
+    const n = await db.syncData.apply([{ s: 'children', r: theirs }, { s: 'children', r: stale }, { s: 'children', r: extra }]);
+    assert.equal(n, 2);
+    assert.equal((await db.children.get(c.id)).name, 'Mia R');
+    assert.equal((await db.children.get(c.id))._d, 'other');
+    assert.equal((await db.children.get(extra.id))._u, 5);
+  });
+
+  test('changes for stores that do not sync are refused', async () => {
+    const n = await db.syncData.apply([{ s: 'meta', r: { id: 'x', key: 'caregiverName', value: 'Evil' } }]);
+    assert.equal(n, 0);
+    assert.equal(await db.meta.get('caregiverName', ''), '');
+  });
+
+  test('stampAll gives records from before sync a stamp, so they can be sent', async () => {
+    const conn = await db.openDb();
+    await new Promise((res) => { const t = conn.transaction(['children'], 'readwrite'); t.objectStore('children').put({ id: 'legacy', name: 'Old', createdAt: NOW }); t.oncomplete = res; });
+    await db.syncData.stampAll();
+    const got = await db.children.get('legacy');
+    assert.equal(got._d, db.deviceId());
+    const snap = await db.syncData.snapshot();
+    assert.ok(snap.children.some((x) => x.id === 'legacy'));
   });
 });

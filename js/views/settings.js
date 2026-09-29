@@ -11,6 +11,8 @@ import { THEME_CHOICES, applyTheme } from '../theme.js';
 import { pushStatus, enablePush, disablePush, notifyPermission } from '../push.js';
 import { isNative, testNative, exactAlarmsAllowed, openExactAlarmSettings } from '../native.js';
 import { refreshReminders } from '../reminders.js';
+import { syncConfigured, syncConfig, syncStatus } from '../sync.js';
+import { formatAgo } from '../format.js';
 import { field } from './child.js';
 
 /** @typedef {import('../app.js').Ctx} Ctx */
@@ -44,6 +46,12 @@ export async function settings(ctx) {
 
   // Android can be set to deliver alarms late to save battery; reminders need the exact minute.
   const inexact = isNative() && perm === 'granted' && !(await exactAlarmsAllowed());
+
+  const linkCfg = syncConfigured() ? await syncConfig() : null;
+  const linkSt = linkCfg ? await syncStatus() : {};
+  const linkLine = !syncConfigured() ? 'Not set up in this version yet.'
+    : !linkCfg ? 'Share one record with your partner’s phone.'
+      : linkSt.okAt ? `Linked. Last checked ${formatAgo(linkSt.okAt, now())}.` : 'Linked. Waiting to reach the sync server.';
 
   const active = await db.reminders.active();
   const kids = await db.children.list({ includeArchived: true });
@@ -109,6 +117,11 @@ export async function settings(ctx) {
       perm === 'granted' ? h('button', { class: 'btn btn-secondary', onclick: testNotification }, 'Send a test notification') : null,
       h('p', { class: 'small muted' }, active.length === 0 ? 'No reminders set.' : `${active.length} reminder${active.length === 1 ? '' : 's'} set.`),
       active.length ? h('button', { class: 'btn btn-quiet', onclick: async () => { for (const r of active) await db.reminders.cancel(r.id, now()); await refreshReminders(); toast('Reminders cleared'); ctx.refresh(); } }, 'Clear all reminders') : null,
+    ),
+    h('section', { class: 'stack-sm' },
+      h('h2', null, 'Linked phones'),
+      h('p', null, linkLine),
+      syncConfigured() ? h('a', { class: 'btn btn-secondary', href: '#/link' }, icon('share'), linkCfg ? 'Linked phones' : 'Link with another phone') : null,
     ),
     h('section', { class: 'stack-sm' },
       h('h2', null, 'Display'),

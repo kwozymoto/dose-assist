@@ -9,9 +9,17 @@
    - The only hard delete is deleteEverything(), the user's own "delete all
      data" in Settings.
 
+   Sync: every write to a shared store (syncmerge.js SYNCED_STORES) is
+   stamped with `_u` (when) and `_d` (this phone's id), so linked phones can
+   tell which version is newer. Records from another phone are written as
+   they came (syncData.apply), never restamped. A reminder's own
+   bookkeeping (planned, fired) is local and not stamped.
+
    sw.js reads the `reminders` store directly. It opens the database without
    a version and aborts if it would create it, so it can never race the app
    into an empty schema. Keep DB_NAME and the store name in step with it. */
+
+import { SYNCED_STORES, mergeRecord } from './syncmerge.js';
 
 // Internal names keep the app's first name (Dose Assist), so records and backups made before the rename still open.
 export const DB_NAME = 'dose-assist';
@@ -201,12 +209,37 @@ async function tx(stores, mode, fn) {
 const all = (store) => tx([store], 'readonly', (t) => done(t.objectStore(store).getAll()));
 /** @param {string} store @param {string} id */
 const get = (store, id) => tx([store], 'readonly', (t) => done(t.objectStore(store).get(id)));
-/** @param {string} store @param {object} value */
-const put = (store, value) => tx([store], 'readwrite', (t) => done(t.objectStore(store).put(value)));
+/** @param {string} store @param {object} value @param {{local?: boolean}} [opts] local: this phone's own bookkeeping, not a change to share */
+const put = (store, value, opts = {}) => tx([store], 'readwrite', (t) => done(t.objectStore(store).put(opts.local ? value : stamp(store, value))));
 /** @param {string} store @param {string} index @param {string} key @returns {Promise<any[]>} */
 const byIndex = (store, index, key) => tx([store], 'readonly', (t) => done(t.objectStore(store).index(index).getAll(key)));
 
 export const uid = () => crypto.randomUUID();
+
+/** This phone's id for sync stamps. Kept in localStorage; a phone with no storage gets one per session. */
+let DEVICE = '';
+export function deviceId() {
+  if (DEVICE) return DEVICE;
+  try {
+    DEVICE = localStorage.getItem('da.deviceId') || '';
+    if (!DEVICE) { DEVICE = crypto.randomUUID(); localStorage.setItem('da.deviceId', DEVICE); }
+  } catch {
+    DEVICE = crypto.randomUUID();
+  }
+  return DEVICE;
+}
+
+const SYNCED = new Set(/** @type {readonly string[]} */ (SYNCED_STORES));
+/** Told after a shared record is written, so sync can send it soon. */
+let onWrite = () => {};
+/** @param {() => void} f */
+export const setOnWrite = (f) => { onWrite = f; };
+/** A shared record, stamped as changed now on this phone. @template T @param {string} store @param {T} value @returns {T} */
+const stamp = (store, value) => {
+  if (!SYNCED.has(store)) return value;
+  queueMicrotask(onWrite);
+  return { ...value, _u: Date.now(), _d: deviceId() };
+};
 
 /* ---------------- children ---------------- */
 
@@ -291,8 +324,8 @@ export const doses = {
     await tx(['doses', 'audit'], 'readwrite', async (t) => {
       const existing = await done(t.objectStore('doses').get(dose.id));
       if (existing) throw new Error(`dose ${dose.id} already exists`);
-      t.objectStore('doses').put(dose);
-      t.objectStore('audit').put(/** @type {DoseAudit} */ ({ id: uid(), doseId: dose.id, action: 'create', before: null, after: dose, at: dose.loggedAt, by }));
+      t.objectStore('doses').put(stamp('doses', dose));
+      t.objectStore('audit').put(stamp('audit', /** @type {DoseAudit} */ ({ id: uid(), doseId: dose.id, action: 'create', before: null, after: dose, at: dose.loggedAt, by })));
     });
     return dose;
   },
@@ -322,8 +355,8 @@ export const doses = {
         b[k] = /** @type {any} */ (before)[k];
         a[k] = /** @type {any} */ (after)[k];
       }
-      t.objectStore('doses').put(after);
-      t.objectStore('audit').put(/** @type {DoseAudit} */ ({ id: uid(), doseId: id, action: 'edit', before: b, after: a, at: who.at, by: who.by, ...(who.reason ? { reason: who.reason } : {}) }));
+      t.objectStore('doses').put(stamp('doses', after));
+      t.objectStore('audit').put(stamp('audit', /** @type {DoseAudit} */ ({ id: uid(), doseId: id, action: 'edit', before: b, after: a, at: who.at, by: who.by, ...(who.reason ? { reason: who.reason } : {}) })));
       return after;
     });
   },
@@ -339,8 +372,8 @@ export const doses = {
       if (!before) throw new Error(`no dose ${id}`);
       if (before.deletedAt) return before;
       const after = { ...before, deletedAt: who.at };
-      t.objectStore('doses').put(after);
-      t.objectStore('audit').put(/** @type {DoseAudit} */ ({ id: uid(), doseId: id, action: 'delete', before: { deletedAt: null }, after: { deletedAt: who.at }, at: who.at, by: who.by, ...(who.reason ? { reason: who.reason } : {}) }));
+      t.objectStore('doses').put(stamp('doses', after));
+      t.objectStore('audit').put(stamp('audit', /** @type {DoseAudit} */ ({ id: uid(), doseId: id, action: 'delete', before: { deletedAt: null }, after: { deletedAt: who.at }, at: who.at, by: who.by, ...(who.reason ? { reason: who.reason } : {}) })));
       return after;
     });
   },
@@ -353,8 +386,8 @@ export const doses = {
       if (!before) throw new Error(`no dose ${id}`);
       if (!before.deletedAt) return before;
       const after = { ...before, deletedAt: null };
-      t.objectStore('doses').put(after);
-      t.objectStore('audit').put(/** @type {DoseAudit} */ ({ id: uid(), doseId: id, action: 'restore', before: { deletedAt: before.deletedAt }, after: { deletedAt: null }, at: who.at, by: who.by, ...(who.reason ? { reason: who.reason } : {}) }));
+      t.objectStore('doses').put(stamp('doses', after));
+      t.objectStore('audit').put(stamp('audit', /** @type {DoseAudit} */ ({ id: uid(), doseId: id, action: 'restore', before: { deletedAt: before.deletedAt }, after: { deletedAt: null }, at: who.at, by: who.by, ...(who.reason ? { reason: who.reason } : {}) })));
       return after;
     });
   },
@@ -409,10 +442,10 @@ export const reminders = {
       const existing = await done(store.index('childId').getAll(r.childId));
       for (const e of existing) {
         if (!e.firedAt && !e.cancelledAt && e.ingredients.some((i) => r.ingredients.includes(i))) {
-          store.put({ ...e, cancelledAt: r.createdAt });
+          store.put(stamp('reminders', { ...e, cancelledAt: r.createdAt }));
         }
       }
-      store.put(r);
+      store.put(stamp('reminders', r));
     });
     return r;
   },
@@ -424,7 +457,7 @@ export const reminders = {
   /** @param {string} id @param {number} at */
   async markFired(id, at) {
     const r = await get('reminders', id);
-    if (r && !r.firedAt) await put('reminders', { ...r, firedAt: at });
+    if (r && !r.firedAt) await put('reminders', { ...r, firedAt: at }, { local: true });
   },
   /**
    * The time this reminder is currently planned for. sw.js checks a pushed
@@ -433,7 +466,7 @@ export const reminders = {
    */
   async setPlanned(id, planned) {
     const r = await get('reminders', id);
-    if (r) await put('reminders', { ...r, planned });
+    if (r) await put('reminders', { ...r, planned }, { local: true });
   },
 };
 
@@ -465,6 +498,52 @@ export const meta = {
   },
   /** @param {string} key @param {unknown} value */
   set: (key, value) => put('meta', { key, value }),
+};
+
+/* ---------------- sync ---------------- */
+
+export const syncData = {
+  /** Every record in every shared store. @returns {Promise<Record<string, any[]>>} */
+  async snapshot() {
+    /** @type {Record<string, any[]>} */
+    const out = {};
+    await tx([...SYNCED_STORES], 'readonly', async (t) => {
+      for (const s of SYNCED_STORES) out[s] = await done(t.objectStore(s).getAll());
+    });
+    return out;
+  },
+  /**
+   * Write changes that came from another phone, where they are newer. One
+   * transaction. Stores that do not sync are ignored.
+   * @param {{s: string, r: any}[]} changes
+   * @returns {Promise<number>} how many records were written
+   */
+  async apply(changes) {
+    const ok = changes.filter((c) => SYNCED.has(c.s) && c.r && typeof c.r.id === 'string');
+    if (!ok.length) return 0;
+    return tx([...SYNCED_STORES], 'readwrite', async (t) => {
+      let n = 0;
+      for (const c of ok) {
+        const store = t.objectStore(c.s);
+        const merged = mergeRecord(c.s, await done(store.get(c.r.id)), c.r);
+        if (merged) { store.put(merged); n += 1; }
+      }
+      return n;
+    });
+  },
+  /** Drop this phone's shared records (not settings), to take the family's instead. */
+  async clear() {
+    await tx([...SYNCED_STORES], 'readwrite', (t) => { for (const s of SYNCED_STORES) t.objectStore(s).clear(); });
+  },
+  /** Give every record from before sync a stamp from this phone, so it is sent once. */
+  async stampAll() {
+    await tx([...SYNCED_STORES], 'readwrite', async (t) => {
+      for (const s of SYNCED_STORES) {
+        const store = t.objectStore(s);
+        for (const r of await done(store.getAll())) if (typeof r._u !== 'number') store.put(stamp(s, r));
+      }
+    });
+  },
 };
 
 /* ---------------- whole-database ---------------- */

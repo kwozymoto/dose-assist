@@ -614,3 +614,7 @@ html, body { overflow-x: clip; }
   font-family: var(--font-head); font-weight: 700; font-size: 1.05rem;
 }
 .dose-go .icon { width: 20px; height: 20px; }
+
+/* ---------- linked phones ---------- */
+.qr { display: grid; place-items: center; padding: 16px; border-radius: var(--r-card); background: var(--surface); }
+.qr svg { width: min(100%, 280px); height: auto; display: block; }

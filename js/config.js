@@ -8,6 +8,9 @@ export const PUSH_URL = '';
 /* The VAPID public key matching the worker's private key, base64url.
    Generate the pair with `node tools/vapid-keys.mjs`. */
 export const VAPID_PUBLIC_KEY = '';
+/* The sync server (sync-worker/), for linked phones. Empty until deployed:
+   then Settings says sync is not set up. */
+export const SYNC_URL = '';
 
 /* Undo stays available this long after logging (PLAN.md 8.1). */
 /* The "Test version: limits not yet checked by a pharmacist" notice. Off

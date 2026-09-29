@@ -97,3 +97,15 @@ python tools/android_icons.py # redraw launcher and notification icons from icon
 ```
 
 After changing any shell file, run `npm run android:sync` again before building.
+
+## Linked phones (sync)
+
+Two phones can share one record. Settings → Linked phones: the first phone shows a QR code; the second scans it (the Android app's camera) or pastes the code.
+
+- The code holds a random family id and a 256-bit key. The key never leaves the phones. Every change is sealed on the phone with AES-256-GCM (`js/synccrypto.js`) before it is sent.
+- `sync-worker/` (Cloudflare Worker, one Durable Object per family) stores only the sealed batches, which phone sent each, and a hash of the family's access token (an HMAC of the key). It cannot read anything.
+- `js/db.js` stamps every shared record with when and on which phone it changed; `js/syncmerge.js` keeps the later change (records are never hard-deleted, so a deletion is just a newer version). Settings and label photos stay on each phone.
+- `js/sync.js` sends and fetches on open, after any change, every two minutes while open, when the app returns to the front, and before a dose is logged; the confirm screen says whether the other phone's doses were checked.
+- Set `SYNC_URL` in `js/config.js` to the deployed worker. Local testing: `cd sync-worker && npx wrangler dev --port 8787`, set `SYNC_URL` to `http://127.0.0.1:8787` (do not commit that), and use `127.0.0.1:8741` and `localhost:8741` as two phones.
+
+Deploy: `cd sync-worker && npx wrangler login && npx wrangler deploy`.

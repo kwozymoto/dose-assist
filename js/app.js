@@ -15,6 +15,8 @@ import { onboarding } from './views/onboarding.js';
 import { give } from './views/give.js';
 import { childDetail, childForm, childSummary } from './views/child.js';
 import { gapView } from './views/gap.js';
+import { linkView } from './views/link.js';
+import { startSync } from './sync.js';
 import { doseEdit } from './views/dose.js';
 import { bottlesList, bottleNew, bottleDetail } from './views/bottles.js';
 import { symptomForm } from './views/symptoms.js';
@@ -60,6 +62,7 @@ route('/child/:id/edit', childForm);
 route('/child/:id/symptom', symptomForm);
 route('/child/:id/summary', childSummary);
 route('/child/:id/gap', gapView);
+route('/link', linkView);
 route('/dose/:id', doseEdit);
 route('/bottles', bottlesList);
 route('/bottles/new', bottleNew);
@@ -217,6 +220,14 @@ async function boot() {
   try { await navigator.storage?.persist?.(); } catch { /* optional */ }
   await render();
   startReminders({ onFire: () => softRefresh() });
+  startSync();
+  // Another phone's changes arrived: new reminder times, and fresh screens,
+  // except where someone is typing (a form would lose what they entered).
+  addEventListener('whendose:synced', () => {
+    refreshReminders();
+    const h = location.hash;
+    if (!/\/(give|edit|new|symptom|gap|link)\b|#\/dose\//.test(h)) softRefresh();
+  });
   // Screen readers: tell them the screen changed.
   addEventListener('hashchange', () => setTimeout(() => document.getElementById('screen-title')?.focus(), 0));
   /** @type {any} */ (window).__doseAssist = { state, db, refresh: render };
