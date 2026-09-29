@@ -51,11 +51,12 @@ export async function settings(ctx) {
   const linkSt = linkCfg ? await syncStatus() : {};
   const linkLine = !syncConfigured() ? 'Not set up in this version yet.'
     : !linkCfg ? 'Share one record with your partner’s phone.'
-      : linkSt.okAt ? `Linked. Last checked ${formatAgo(linkSt.okAt, now())}.` : 'Linked. Waiting to reach the sync server.';
+      : linkSt.okAt ? `Linked${linkCfg?.otherName ? ` with ${linkCfg.otherName}’s phone` : ''}. Last checked ${formatAgo(linkSt.okAt, now())}.` : 'Linked. Waiting to reach the sync server.';
 
   const active = await db.reminders.active();
   const kids = await db.children.list({ includeArchived: true });
-  const archived = kids.filter((k) => k.archivedAt);
+  // Children merged into another when two phones linked are not real archived children.
+  const archived = kids.filter((k) => k.archivedAt && !k.mergedInto);
 
   const exportData = async () => {
     const file = await db.exportAll(now());

@@ -45,6 +45,31 @@ export function doubleDoses(doses, rules, now) {
 }
 
 /**
+ * Medicines that are the same medicine, entered on both phones before
+ * linking: same product (or name), form and strengths. Keeps the lowest id,
+ * so both phones pick the same one.
+ * @param {Array<{id: string, productId: string | null, name: string, form: string, components: {ingredient: string, strengthMg: number, strengthPer: number}[], archivedAt?: number | null}>} bottles
+ * @returns {{keep: string, merge: string[]}[]}
+ */
+export function duplicateBottles(bottles) {
+  /** @type {Map<string, string[]>} */
+  const groups = new Map();
+  for (const b of bottles) {
+    if (b.archivedAt) continue;
+    const strengths = b.components.map((c) => `${c.ingredient}:${c.strengthMg}/${c.strengthPer}`).sort().join('+');
+    const k = `${b.productId ?? b.name.trim().toLowerCase()}|${b.form}|${strengths}`;
+    groups.set(k, [...(groups.get(k) ?? []), b.id]);
+  }
+  const out = [];
+  for (const ids of groups.values()) {
+    if (ids.length < 2) continue;
+    const sorted = [...ids].sort();
+    out.push({ keep: sorted[0], merge: sorted.slice(1) });
+  }
+  return out;
+}
+
+/**
  * Children that are the same child: same name (ignoring case and spaces at
  * the ends) and same date of birth. Keeps the lowest id, so both phones pick
  * the same one.

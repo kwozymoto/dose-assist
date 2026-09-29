@@ -4,7 +4,7 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { mergeRecord, outgoing, forWire, pushedMark } from '../js/syncmerge.js';
-import { doubleDoses, duplicateChildren } from '../js/syncchecks.js';
+import { doubleDoses, duplicateChildren, duplicateBottles } from '../js/syncchecks.js';
 import { RULES, NOW, MIN, HOUR } from './engine/fixtures.mjs';
 
 const rec = (id, u, d, extra = {}) => ({ id, _u: u, _d: d, ...extra });
@@ -77,6 +77,21 @@ describe('doses given twice by two people', () => {
   });
   test('different children are never paired', () => {
     assert.equal(doubleDoses([dose('a', 30 * MIN, 'Mum', 'p1'), dose('b', 25 * MIN, 'Dad', 'p2', 'alpha', { childId: 'other' })], RULES, NOW).length, 0);
+  });
+});
+
+describe('the same medicine on both phones', () => {
+  const b = (id, over = {}) => ({ id, productId: 'pamol-250-5', name: 'Pamol', form: 'liquid', components: [{ ingredient: 'paracetamol', strengthMg: 250, strengthPer: 5 }], ...over });
+  test('same product and strength: grouped, keeping the lowest id', () => {
+    assert.deepEqual(duplicateBottles([b('z'), b('a'), b('m', { productId: 'other' })]), [{ keep: 'a', merge: ['z'] }]);
+  });
+  test('different strength, form, or removed: never merged', () => {
+    assert.deepEqual(duplicateBottles([b('a'), b('b', { components: [{ ingredient: 'paracetamol', strengthMg: 120, strengthPer: 5 }] })]), []);
+    assert.deepEqual(duplicateBottles([b('a'), b('b', { form: 'tablet' })]), []);
+    assert.deepEqual(duplicateBottles([b('a'), b('b', { archivedAt: 5 })]), []);
+  });
+  test('custom medicines match on name, ignoring case and spaces', () => {
+    assert.deepEqual(duplicateBottles([b('b', { productId: null, name: 'My Pamol ' }), b('a', { productId: null, name: 'my pamol' })]), [{ keep: 'a', merge: ['b'] }]);
   });
 });
 

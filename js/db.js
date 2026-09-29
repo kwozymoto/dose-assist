@@ -60,6 +60,7 @@ export const STORES = ['children', 'weights', 'bottles', 'photos', 'doses', 'aud
  * @property {Record<string, number>} [gapMinutes]  the parent's chosen gap between doses, by ingredient; read through clampGap, never trusted as stored
  * @property {number} createdAt
  * @property {number | null} [archivedAt]
+ * @property {string} [mergedInto]  the same child on both linked phones: this copy was merged into that one
  *
  * @typedef {object} WeightRecord
  * @property {string} id
@@ -83,6 +84,7 @@ export const STORES = ['children', 'weights', 'bottles', 'photos', 'doses', 'aud
  * @property {number} [confirmedAt]  the parent said this is still the bottle in use
  * @property {number} addedAt
  * @property {number | null} [archivedAt]
+ * @property {string} [mergedInto]  the same medicine on both linked phones: this copy was merged into that one
  *
  * @typedef {object} DoseRecord
  * @property {string} id
@@ -579,6 +581,29 @@ export const syncData = {
       }
       kids.put(stamp('children', { ...b, usualDoses: { ...(a.usualDoses ?? {}), ...(b.usualDoses ?? {}) }, gapMinutes: { ...(a.gapMinutes ?? {}), ...(b.gapMinutes ?? {}) } }));
       kids.put(stamp('children', { ...a, archivedAt: who.at, mergedInto: to }));
+    });
+  },
+  /**
+   * The same medicine entered on both phones: point saved doses and
+   * reminders at `to`, and remove `from` (marked mergedInto). Doses keep
+   * their own copy of the bottle, so history is unchanged.
+   * @param {string} from @param {string} to @param {number} at
+   */
+  async mergeBottle(from, to, at) {
+    await tx(['bottles', 'children', 'reminders'], 'readwrite', async (t) => {
+      const bs = t.objectStore('bottles');
+      const a = await done(bs.get(from));
+      if (!a || !(await done(bs.get(to)))) return;
+      const kids = t.objectStore('children');
+      for (const k of await done(kids.getAll())) {
+        const u = k.usualDoses ?? {};
+        if (!(from in u)) continue;
+        const { [from]: moved, ...rest } = u;
+        kids.put(stamp('children', { ...k, usualDoses: { [to]: moved, ...rest } }));
+      }
+      const rs = t.objectStore('reminders');
+      for (const r of await done(rs.getAll())) if (r.bottleId === from) rs.put(stamp('reminders', { ...r, bottleId: to }));
+      bs.put(stamp('bottles', { ...a, archivedAt: at, mergedInto: to }));
     });
   },
   /** Give every record from before sync a stamp from this phone, so it is sent once. */

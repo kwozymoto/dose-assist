@@ -1,5 +1,16 @@
 # Changelog
 
+## Android 1.0.2 to 1.0.9: audit fixes, safety stops, linking (unreleased)
+
+- **Call links ask first.** Every call link (footer, Help, stop screens) opens "Call 111 (111) now?" before the dialer, so a child with the phone cannot reach 111 in one tap. Help lists the numbers instead of three big call buttons. Footer links are 56 px tall.
+- **Linked with whom.** Each sealed batch carries the sender's name (Settings → Your name); Settings and Linked phones say "Linked with Fraser's phone". A phone sends a sealed hello when its name is new to the other phone.
+- **Duplicates from linking.** The same medicine on both phones (same product or name, form and strengths) is merged after each sync; both phones keep the same one; saved doses and reminders move to it (`duplicateBottles`, tested). Children merged at linking no longer show in Settings → Archived children.
+- **Weight stops.** One dose at 1.5 times the usual mg per kg or more, with a recent weight, is a stop ("Far too much for their weight"), for paracetamol and ibuprofen (`bigDose`, tests). "A doctor or pharmacist told us to give this" gets past it after a red warning; recorded as `DOCTOR_ADVISED`. Far-over-limit stops use a loud red style. Ibuprofen's 24-hour per-kg limit stays a caution (no source).
+- **Earlier times checked against later doses** (`js/engine/later.js`, tests first): logging late or editing a time now checks the doses after it, not only before. Edits also check weight; deleting says when it lifts a stop.
+- **Sync honesty:** joining checks the code finds another phone first; Home and the confirm screen say when the other phone never linked or has not been checked with; each dose is sent straight after logging and the done screen says if it went; doses given twice by two people get a danger notice with the Poisons Centre; sends go by a change counter; a delete is not undone by an edit; the link never goes into a backup. QR and shared links no longer lost on the app's refresh.
+- **Entry checks:** brand names cannot be typed as a new ingredient; unusual strengths flagged; birth dates over 18 years refused; odd weights for age asked about; tiny amounts asked about; symptom entries can be deleted.
+- **Screens:** Home says "Paracetamol allowed now"; a medicine's status on Home is tappable; Add a child on Home; "Log a dose for X"; Done after logging; Not now buttons say when it is allowed again; days on times across midnight; buttons do not reorder while looked at; half-entered doses are dropped; setup offers the second medicine; times never break mid-phrase; no phone icon in the top bar.
+
 ## WhenDose; Auto theme by the clock (unreleased)
 
 - The name is written **WhenDose** (was Whendose). App id unchanged (`nz.whendose.app`).

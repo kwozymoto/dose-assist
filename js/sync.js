@@ -15,12 +15,13 @@ import * as db from './db.js';
 import { SYNC_URL } from './config.js';
 import { newFamily, linkText, readLink, authToken, seal, open } from './synccrypto.js';
 import { outgoing, chunk, pushedMark } from './syncmerge.js';
-import { duplicateChildren } from './syncchecks.js';
+import { duplicateChildren, duplicateBottles } from './syncchecks.js';
 import { isNative, setNativeSyncKey, registerPush, nudgePayload } from './native.js';
 import { upcomingNotices } from './reminders.js';
 
 /**
- * @typedef {{fid: string, key: string, pushed: number, pushedSeq?: number, cursor: number, linkedAt: number, sendAll?: boolean, otherAt?: number}} SyncConfig
+ * @typedef {{fid: string, key: string, pushed: number, pushedSeq?: number, cursor: number, linkedAt: number, sendAll?: boolean, otherAt?: number, otherName?: string, sentName?: string}} SyncConfig
+ *   otherName: the name the other phone's user gave (Settings → Your name), sent sealed with each batch
  *   otherAt: when a change from another phone last arrived (never: the other phone has not linked yet)
  * @typedef {{okAt?: number, errorAt?: number, error?: string}} SyncStatus
  */
@@ -52,7 +53,7 @@ export async function startFamily() {
   // Even a phone with no records yet puts one sealed "hello" on the server, so
   // a phone joining with this code can tell the code is real.
   try {
-    await fetch(`${SYNC_URL}/v1/sync/${f.fid}/push`, { method: 'POST', headers: { Authorization: `Bearer ${await authToken(f.key)}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ dev: db.deviceId(), blobs: [await seal(f.key, { v: 1, changes: [] })] }) });
+    await fetch(`${SYNC_URL}/v1/sync/${f.fid}/push`, { method: 'POST', headers: { Authorization: `Bearer ${await authToken(f.key)}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ dev: db.deviceId(), blobs: [await seal(f.key, { v: 1, changes: [], from: await myName() })] }) });
   } catch { /* the first real sync will create it */ }
   syncSoon(0);
   return linkText(f, SYNC_URL);
@@ -91,6 +92,11 @@ export async function joinFamily(text, opts) {
     if (merged) await syncNow();
   }
   return { ...r, mergedChildren: merged };
+}
+
+/** This phone's user, as they named themselves; sent sealed so the other phone can say who it is linked with. */
+async function myName() {
+  return String(await db.meta.get('caregiverName', '')).trim().slice(0, 40);
 }
 
 /**
@@ -172,9 +178,15 @@ async function run() {
     const out = outgoing(await db.syncData.snapshot(), me, { seq: cfg.pushedSeq ?? 0, time: cfg.pushed }, { all: cfg.sendAll === true });
     let pushed = cfg.pushed;
     let pushedSeq = cfg.pushedSeq ?? 0;
+    const from = await myName();
+    // Nothing to send, but this phone's name is new to the other phone: say hello.
+    if (!out.length && from && cfg.sentName !== from) {
+      const res = await fetch(`${base}/push`, { method: 'POST', headers: { ...auth, 'Content-Type': 'application/json' }, body: JSON.stringify({ dev: me, blobs: [await seal(cfg.key, { v: 1, changes: [], from })] }) });
+      if (!res.ok) throw new Error(`send failed (${res.status})`);
+    }
     if (out.length) {
       const blobs = [];
-      for (const part of chunk(out, BATCH_CHARS)) blobs.push(await seal(cfg.key, { v: 1, changes: part }));
+      for (const part of chunk(out, BATCH_CHARS)) blobs.push(await seal(cfg.key, { v: 1, changes: part, from }));
       const nudge = await sealedNudge(cfg.key);
       for (let i = 0; i < blobs.length; i += PUSH_BLOBS) {
         const last = i + PUSH_BLOBS >= blobs.length;
@@ -188,6 +200,7 @@ async function run() {
     let cursor = cfg.cursor;
     let merged = 0;
     let otherAt = cfg.otherAt;
+    let otherName = cfg.otherName;
     for (let more = true; more;) {
       const res = await fetch(`${base}/pull?after=${cursor}`, { headers: auth });
       if (!res.ok) throw new Error(`fetch failed (${res.status})`);
@@ -199,7 +212,10 @@ async function run() {
         /** @type {any} */
         let payload;
         try { payload = await open(cfg.key, it.blob); } catch { continue; } // not ours, or damaged: skip it
-        if (it.dev !== me) otherAt = Date.now();
+        if (it.dev !== me) {
+          otherAt = Date.now();
+          if (typeof payload?.from === 'string' && payload.from.trim()) otherName = payload.from.trim().slice(0, 40);
+        }
         if (payload?.v === 1 && Array.isArray(payload.changes)) merged += await db.syncData.apply(payload.changes);
       }
       cursor = Number(body.last ?? cursor);
@@ -207,8 +223,11 @@ async function run() {
     }
 
     const now = await syncConfig();
-    if (now && now.fid === cfg.fid) await db.meta.set('sync', { ...now, pushed: Math.max(now.pushed, pushed), pushedSeq: Math.max(now.pushedSeq ?? 0, pushedSeq), cursor, sendAll: false, ...(otherAt ? { otherAt } : {}) });
+    if (now && now.fid === cfg.fid) await db.meta.set('sync', { ...now, pushed: Math.max(now.pushed, pushed), pushedSeq: Math.max(now.pushedSeq ?? 0, pushedSeq), cursor, sendAll: false, ...(otherAt ? { otherAt } : {}), ...(otherName ? { otherName } : {}), ...(from ? { sentName: from } : {}) });
     await db.meta.set('syncStatus', /** @type {SyncStatus} */ ({ okAt: Date.now() }));
+    // The same medicine on both phones (added before linking): make it one.
+    // Both phones choose the same one to keep, so they agree.
+    for (const g of duplicateBottles(await db.bottles.list())) for (const from of g.merge) { await db.syncData.mergeBottle(from, g.keep, Date.now()); merged += 1; }
     if (merged > 0) globalThis.dispatchEvent?.(new CustomEvent('whendose:synced', { detail: { merged } }));
     return { status: 'ok', merged };
   } catch (err) {

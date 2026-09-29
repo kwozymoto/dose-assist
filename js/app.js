@@ -2,7 +2,7 @@
 /* Boot and routing. Hash routes, one view per screen; each view is an
    async function that returns the screen's title and content. */
 
-import { h, icon } from './dom.js';
+import { h, icon, confirmDialog } from './dom.js';
 import * as db from './db.js';
 import { state, loadData } from './state.js';
 import { clockOffset, setClockOffset } from './clock.js';
@@ -218,6 +218,17 @@ async function boot() {
   await applyTheme();
   footer();
   addEventListener('hashchange', () => render());
+  // Every call link asks first: a child with the phone is one tap from the
+  // dialer otherwise, and one more from calling 111.
+  document.addEventListener('click', async (e) => {
+    const a = /** @type {HTMLElement | null} */ (e.target instanceof Element ? e.target.closest('a[href^="tel:"]') : null);
+    if (!a) return;
+    e.preventDefault();
+    const tel = (a.getAttribute('href') ?? '').slice(4);
+    const n = Object.values(EMERGENCY).find((x) => x.tel === tel);
+    const ok = await confirmDialog({ title: `Call ${n ? `${n.name} (${n.display})` : tel} now?`, confirm: 'Call', cancel: 'Cancel' });
+    if (ok) location.href = `tel:${tel}`;
+  }, true);
   // Refresh countdowns when the phone wakes or the app comes back.
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { applyTheme(); softRefresh(); refreshReminders(); } });
   try { await navigator.storage?.persist?.(); } catch { /* optional */ }

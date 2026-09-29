@@ -79,7 +79,7 @@ async function linked(ctx, back) {
   const line = !cfgNow?.otherAt
     ? 'Waiting for your other phone to link. On it, open the camera and point it at the code (Show the code, below).'
     : st.okAt
-      ? `Last checked ${formatAgo(st.okAt, t)}. Last change from your other phone ${formatAgo(cfgNow.otherAt, t)}.`
+      ? `Linked with ${cfgNow.otherName ? `${cfgNow.otherName}’s phone` : 'your other phone'}. Last checked ${formatAgo(st.okAt, t)}; last change from it ${formatAgo(cfgNow.otherAt, t)}.`
       : 'Linked. Waiting to reach the sync server.';
   const failing = st.errorAt && (!st.okAt || st.errorAt > st.okAt);
   const syncBtn = async () => {

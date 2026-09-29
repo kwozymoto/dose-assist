@@ -29,10 +29,14 @@ function cite(ids) {
 /** @param {Ctx} _ctx @returns {Promise<Screen>} */
 export async function help(_ctx) {
   const node = h('div', { class: 'stack' },
-    h('section', { class: 'stack-sm' },
-      callButton('emergency', 'btn-danger'),
-      callButton('healthline', 'btn-primary'),
-      callButton('poisons'),
+    // Listed, not big call buttons: a child holding the phone should not be
+    // one tap from 111. Every call link in the app asks first (app.js).
+    h('section', { class: 'stack-sm', 'aria-labelledby': 'numbers' },
+      h('h2', { id: 'numbers' }, 'Numbers to call'),
+      h('dl', { class: 'numbers' }, /** @type {const} */ (['emergency', 'healthline', 'poisons']).flatMap((k) => [
+        h('dt', null, EMERGENCY[k].name, ' ', h('a', { href: `tel:${EMERGENCY[k].tel}` }, EMERGENCY[k].display)),
+        h('dd', { class: 'small muted' }, EMERGENCY[k].when),
+      ])),
     ),
     section(GUIDANCE.call111),
     section(GUIDANCE.seeUrgently),
