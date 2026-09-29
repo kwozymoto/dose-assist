@@ -8,7 +8,7 @@
    if SHELL names a file that does not exist, or if a shell file changed
    since git HEAD without VERSION changing. */
 
-const VERSION = 'v33';
+const VERSION = 'v34';
 const CACHE = `dose-assist-${VERSION}`;
 
 const SHELL = [

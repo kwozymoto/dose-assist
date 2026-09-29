@@ -1,5 +1,9 @@
 # Changelog
 
+## Android 1.0.11 (unreleased)
+
+- Help: the "Call 111" box repeated the Emergency line under Numbers to call; the box is gone and its sources sit under the numbers.
+
 ## Android 1.0.10: the rest of the audit list (unreleased)
 
 - **Linking:** "This is the first phone" no longer starts sharing by itself; "Make the code" does. Pasted codes and scanned links go to one question screen: "Link and combine our records", "Link and use only the other phone's records" (asks again), or Cancel. A bad paste says why (cut off, not a WhenDose code). Delete all data says the phone will be unlinked and the partner's phone keeps its copy.

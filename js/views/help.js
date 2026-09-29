@@ -37,8 +37,9 @@ export async function help(_ctx) {
         h('dt', null, EMERGENCY[k].name, ' ', h('a', { href: `tel:${EMERGENCY[k].tel}` }, EMERGENCY[k].display)),
         h('dd', { class: 'small muted' }, EMERGENCY[k].when),
       ])),
+      // The "Call 111" advice is the Emergency line above; keep only its source.
+      cite(GUIDANCE.call111.sources),
     ),
-    section(GUIDANCE.call111),
     section(GUIDANCE.seeUrgently),
     section(GUIDANCE.callHealthline),
     h('p', null, h('strong', null, GUIDANCE.ifWorried.text)),
