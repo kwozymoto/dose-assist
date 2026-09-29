@@ -78,13 +78,17 @@ async function setUp() {
 
 /** @returns {Promise<'granted' | 'denied' | 'prompt'>} */
 export async function nativePermission() {
-  const s = await plugin().checkPermissions();
-  return s.display === 'granted' ? 'granted' : s.display === 'denied' ? 'denied' : 'prompt';
+  // A missing or odd answer from Android must never break a screen: treat it as "not asked yet".
+  let s;
+  try { s = await plugin()?.checkPermissions?.(); } catch { s = null; }
+  return s?.display === 'granted' ? 'granted' : s?.display === 'denied' ? 'denied' : 'prompt';
 }
 
 /** @returns {Promise<'granted' | 'denied' | 'prompt'>} */
 export async function requestNativePermission() {
-  const s = await plugin().requestPermissions();
+  let s;
+  try { s = await plugin()?.requestPermissions?.(); } catch { s = null; }
+  if (!s) return nativePermission();
   return s.display === 'granted' ? 'granted' : s.display === 'denied' ? 'denied' : 'prompt';
 }
 

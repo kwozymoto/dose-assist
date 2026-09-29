@@ -16,7 +16,10 @@ import { field } from './child.js';
 /** @typedef {import('../app.js').Ctx} Ctx */
 /** @typedef {import('../app.js').Screen} Screen */
 
-const STEPS = ['intro', 'numbers', 'name', 'child', 'bottle', 'notify', 'install'];
+import { isNative } from '../native.js';
+
+/* The installed Android app is already on the Home Screen: no install step there. */
+const STEPS = isNative() ? ['intro', 'numbers', 'name', 'child', 'bottle', 'notify'] : ['intro', 'numbers', 'name', 'child', 'bottle', 'notify', 'install'];
 
 /** @param {Ctx} ctx @returns {Promise<Screen>} */
 export async function onboarding(ctx) {
@@ -76,21 +79,24 @@ export async function onboarding(ctx) {
     );
   }
 
+  const finish = async () => {
+    await db.meta.set('onboardedAt', now());
+    ctx.go('/', { replace: true });
+  };
+  const afterNotify = () => (isNative() ? finish() : next('install'));
+
   if (step === 'notify') {
     return screen('Reminders', progress,
       h('p', null, 'WhenDose can tell you when the next dose is allowed, so nobody has to watch the clock.'),
       h('p', { class: 'small muted' }, 'Your phone will ask whether to allow notifications. The app only sends reminders you ask for.'),
-      h('button', { class: 'btn btn-primary btn-big', onclick: async () => { try { await enablePush(); } catch { /* shown later */ } next('install'); } }, icon('bell'), 'Turn on reminders'),
-      h('button', { class: 'btn btn-quiet', onclick: () => next('install') }, 'Not now'),
+      h('button', { class: 'btn btn-primary btn-big', onclick: async () => { try { await enablePush(); } catch { /* shown later */ } afterNotify(); } }, icon('bell'), 'Turn on reminders'),
+      h('button', { class: 'btn btn-quiet', onclick: afterNotify }, 'Not now'),
     );
   }
 
   if (step === 'install') {
+    if (isNative()) { await finish(); return screen(''); }
     const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
-    const finish = async () => {
-      await db.meta.set('onboardedAt', now());
-      ctx.go('/', { replace: true });
-    };
     return screen('Keep it on your Home Screen', progress,
       ios
         ? h('p', null, 'On iPhone, tap Share, then “Add to Home Screen”. Reminders only work on iPhone once WhenDose is on your Home Screen, and it keeps your records safe from being cleared.')
