@@ -631,3 +631,11 @@ html, body { overflow-x: clip; }
 .stop-danger .stop-head { background: var(--danger); color: var(--danger-text); border: 3px solid var(--danger); box-shadow: 0 0 0 4px color-mix(in srgb, var(--danger) 30%, transparent); }
 .stop-danger .stop-icon { color: var(--danger-text); }
 .stop-danger .stop-big { font-size: 1.45rem; }
+
+/* Tap targets: every link a tired parent might need is at least 48 px tall. */
+.lifeline a { display: inline-flex; align-items: center; min-height: 48px; min-width: 48px; justify-content: center; padding: 4px 8px; }
+.gap-chips { grid-template-columns: repeat(auto-fit, minmax(56px, 1fr)); }
+.gap-chip { min-height: 56px; min-width: 56px; }
+details > summary { min-height: 48px; display: flex; align-items: center; cursor: pointer; }
+main p a:not(.btn), main li a:not(.btn) { display: inline-block; padding: 8px 0; }
+.btn-quiet { min-height: 48px; }

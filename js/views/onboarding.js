@@ -68,6 +68,7 @@ export async function onboarding(ctx) {
     if (bottles.length) {
       return screen('Your medicines', progress,
         h('ul', { class: 'bullets' }, bottles.map((b) => h('li', null, b.name))),
+        ...missingNote(bottles),
         h('button', { class: 'btn btn-primary btn-big', onclick: () => next('notify') }, 'Next'),
         h('a', { class: 'btn btn-secondary', href: '#/bottles/new?onboarding=1' }, icon('plus'), 'Add another medicine'),
       );
@@ -77,6 +78,13 @@ export async function onboarding(ctx) {
       h('a', { class: 'btn btn-primary btn-big', href: '#/bottles/new?onboarding=1' }, icon('bottle'), 'Add a medicine'),
       h('button', { class: 'btn btn-quiet', onclick: () => next('notify') }, 'Later'),
     );
+  }
+
+  /** A tracked medicine with no bottle yet: say so, once, plainly. @param {{components: {ingredient: string}[]}[]} bs */
+  function missingNote(bs) {
+    const have = new Set(bs.flatMap((b) => b.components.map((c) => c.ingredient)));
+    const missing = Object.keys(state.rules.ingredients).filter((k) => !have.has(k));
+    return missing.length ? [h('p', { class: 'notice' }, `Do you also have ${missing.join(' or ')} at home? Add it now, so it is ready when you need it.`)] : [];
   }
 
   const finish = async () => {

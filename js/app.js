@@ -12,7 +12,7 @@ import { applyTheme } from './theme.js';
 import { startReminders, refreshReminders } from './reminders.js';
 import { home } from './views/home.js';
 import { onboarding } from './views/onboarding.js';
-import { give } from './views/give.js';
+import { give, dropDraft } from './views/give.js';
 import { childDetail, childForm, childSummary } from './views/child.js';
 import { gapView } from './views/gap.js';
 import { linkView, setIncoming } from './views/link.js';
@@ -91,6 +91,8 @@ async function render(soft = false) {
   const raw = location.hash.slice(1) || '/';
   const [path, qs] = raw.split('?');
   const query = new URLSearchParams(qs || '');
+  // Adding a medicine or updating a weight mid-flow comes back to it; anywhere else ends it.
+  if (!(path === '/give' || path.startsWith('/bottles') || /^\/child\/[^/]+\/edit$/.test(path))) dropDraft();
 
   // A dialog belongs to the screen that opened it. Moving to another screen
   // (Back included) closes it as a cancel, so it can never act on the wrong one.

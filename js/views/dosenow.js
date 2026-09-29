@@ -14,7 +14,7 @@
 
 import { h, icon } from '../dom.js';
 import { now, timeZone } from '../clock.js';
-import { formatClock, formatGap, formatTime, formatDuration, formatWhen, formatAgo } from '../format.js';
+import { formatClock, formatGap, formatDuration, formatWhen, formatAgo } from '../format.js';
 import { GUIDANCE } from '../content/guidance.js';
 import { orderForButtons } from '../engine/gap.js';
 import { cap } from '../status.js';
@@ -26,6 +26,29 @@ import { cap } from '../status.js';
 /** @typedef {import('../engine/types.js').DoseCheck} DoseCheck */
 /** @typedef {{ingredient: string, plan: GapPlan, card: CardStatus, check: DoseCheck}} Row */
 
+/* The order the buttons were last shown in, per child. While the screen is
+   being looked at (redrawn every 30 s or so), a countdown ending must not
+   make buttons swap places under a thumb. A fresh visit sorts again. */
+/** @type {Map<string, {keys: string[], at: number}>} */
+const shown = new Map();
+const STEADY_MS = 90 * 1000;
+
+/**
+ * @template {{ingredient: string}} R
+ * @param {string} childId @param {R[]} sorted @returns {R[]}
+ */
+function steadyOrder(childId, sorted) {
+  const keys = sorted.map((r) => r.ingredient);
+  const prev = shown.get(childId);
+  const wall = Date.now();
+  let out = sorted;
+  if (prev && wall - prev.at < STEADY_MS && prev.keys.length === keys.length && keys.every((k) => prev.keys.includes(k))) {
+    out = prev.keys.map((k) => /** @type {R} */ (sorted.find((r) => r.ingredient === k)));
+  }
+  shown.set(childId, { keys: out.map((r) => r.ingredient), at: wall });
+  return out;
+}
+
 /**
  * @param {Child} child
  * @param {Row[]} rows
@@ -35,7 +58,7 @@ import { cap } from '../status.js';
 export function doseNow(child, rows, ctx) {
   const t = now();
   const tz = timeZone();
-  const ordered = orderForButtons(rows);
+  const ordered = steadyOrder(child.id, orderForButtons(rows));
   const solo = ordered.length === 1;
   const allBlocked = rows.length > 0 && rows.every((r) => r.plan.phase === 'blocked');
 
@@ -130,8 +153,8 @@ function buttonView(r, t, tz) {
     case 'ready':
       if (p.readySince !== null) {
         return {
-          state: 'Allowed now', cls: 'dose-ready', icon: 'tick', label: `Allowed since ${formatTime(p.readySince, tz)}`, since: p.readySince,
-          spoken: `Allowed now, since ${formatTime(p.readySince, tz)}, ${formatDuration(t - p.readySince)} ago.`,
+          state: 'Allowed now', cls: 'dose-ready', icon: 'tick', label: `Allowed since ${formatWhen(p.readySince, t, tz)}`, since: p.readySince,
+          spoken: `Allowed now, since ${formatWhen(p.readySince, t, tz)}, ${formatDuration(t - p.readySince)} ago.`,
         };
       }
       break;
@@ -152,8 +175,8 @@ function buttonView(r, t, tz) {
           state: 'Not yet', cls: 'dose-wait', icon: 'clock',
           label: longer ? `Your ${formatGap(p.gapMinutes)} gap ends in` : 'Allowed in',
           until: target,
-          line: longer && p.ruleAt !== null ? `Not allowed until ${formatTime(p.ruleAt, tz)}` : `From ${formatTime(target, tz)}`,
-          spoken: `Not yet. Allowed in ${formatDuration(target - t, { up: true })}, from ${formatTime(p.ruleAt ?? target, tz)}.`,
+          line: longer && p.ruleAt !== null ? `Not allowed until ${formatWhen(p.ruleAt, t, tz)}` : `From ${formatWhen(target, t, tz)}`,
+          spoken: `Not yet. Allowed in ${formatDuration(target - t, { up: true })}, from ${formatWhen(p.ruleAt ?? target, t, tz)}.`,
         };
       }
       break;

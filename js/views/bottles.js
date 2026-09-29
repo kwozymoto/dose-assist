@@ -47,7 +47,7 @@ export async function bottlesList(_ctx) {
 export async function bottleNew(ctx) {
   const then = ctx.query.get('then');
   const onboardingFlow = ctx.query.get('onboarding') === '1';
-  const done = () => ctx.go(onboardingFlow ? '/welcome?step=notify' : then || '/bottles');
+  const done = () => ctx.go(onboardingFlow ? '/welcome?step=bottle' : then || '/bottles');
   const back = onboardingFlow ? '/welcome?step=bottle' : then || '/bottles';
   const pick = ctx.query.get('product');
 

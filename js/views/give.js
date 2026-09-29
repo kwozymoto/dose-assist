@@ -70,6 +70,9 @@ import { clampGap } from '../engine/gap.js';
 
 /** @type {Draft | null} */
 let draft = null;
+
+/** Leaving the give flow drops a half-entered dose, so it never comes back pre-filled later. */
+export function dropDraft() { draft = null; }
 /** @type {{doseId: string} | null} */
 let logged = null;
 /** How sending the last logged dose to a linked phone went. */
