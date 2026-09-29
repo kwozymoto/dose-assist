@@ -37,3 +37,34 @@ describe('native reminders', () => {
     assert.equal(hashOf(42), '#/');
   });
 });
+
+describe('nudge payload for a linked phone', async () => {
+  const { nudgePayload, MAX_NATIVE } = await import('../js/native.js');
+  const n = (i) => ({ ...notice, reminderId: `r-${i}`, fireAt: notice.fireAt + i * 60000 });
+
+  test('all of them: complete, in the plugin\'s own form', () => {
+    const p = nudgePayload([n(1), n(2)]);
+    assert.equal(p.v, 1);
+    assert.equal(p.complete, true);
+    assert.equal(p.notices.length, 2);
+    assert.equal(p.notices[0].id, nativeId('r-1'));
+  });
+
+  test('fewer than all: not complete, so the phone keeps the rest', () => {
+    const p = nudgePayload([n(1), n(2), n(3)], 2);
+    assert.equal(p.complete, false);
+    assert.deepEqual(p.notices.map((x) => x.extra.reminderId), ['r-1', 'r-2']);
+  });
+
+  test('never more than the phone schedules itself', () => {
+    const many = Array.from({ length: MAX_NATIVE + 5 }, (_, i) => n(i));
+    assert.equal(nudgePayload(many).notices.length, MAX_NATIVE);
+    assert.equal(nudgePayload(many).complete, false);
+  });
+
+  test('times travel in the exact form the Android scheduler parses (yyyy-MM-ddTHH:mm:ss.SSSZ, UTC)', () => {
+    const json = JSON.parse(JSON.stringify(nudgePayload([n(0)])));
+    assert.match(json.notices[0].schedule.at, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+    assert.equal(Date.parse(json.notices[0].schedule.at), notice.fireAt);
+  });
+});

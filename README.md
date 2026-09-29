@@ -109,3 +109,5 @@ Two phones can share one record. Settings → Linked phones: the first phone sho
 - Set `SYNC_URL` in `js/config.js` to the deployed worker. Local testing: `cd sync-worker && npx wrangler dev --port 8787`, set `SYNC_URL` to `http://127.0.0.1:8787` (do not commit that), and use `127.0.0.1:8741` and `localhost:8741` as two phones.
 
 Deploy: `cd sync-worker && npx wrangler login && npx wrangler deploy`.
+
+**Nudges (Firebase).** After a push the server sends the family's other phones a Firebase data message with the new reminder times, sealed with the family key, so a closed Android app can move its alarms (`android/app/src/main/java/nz/whendose/app/NudgeService.java`, `Nudge.java`; the app gives the native side the key through `WhenDosePlugin`). Setup: `android/app/google-services.json` from the Firebase console (git-ignored), and the service account key as a secret: `npx wrangler secret put FCM_SERVICE_ACCOUNT < path/to/key.json` (keep the key outside the repo).

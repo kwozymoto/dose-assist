@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <application
         android:allowBackup="true"
@@ -23,6 +24,16 @@
             </intent-filter>
 
         </activity>
+
+        <!-- Firebase messages: our service passes them on to the app and, for a
+             sync nudge, moves the reminder alarms with the app closed. It
+             replaces the push plugin's own service. -->
+        <service android:name=".NudgeService" android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+        <service android:name="com.capacitorjs.plugins.pushnotifications.MessagingService" tools:node="remove" />
 
         <provider
             android:name="androidx.core.content.FileProvider"

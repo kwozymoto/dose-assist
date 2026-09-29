@@ -122,10 +122,45 @@ export async function syncNative(upcoming, opts = {}) {
   if (ours.length) await ln.cancel({ notifications: ours.map((/** @type {any} */ p) => ({ id: p.id })) });
   if (list.length) await ln.schedule({ notifications: list.map(toNative) });
   lastHash = hash;
+  // The closed-app nudge handler (NudgeService) must respect "reminders off" too.
+  try { await cap()?.Plugins?.WhenDose?.setRemindersOff({ off: opts.off === true }); } catch { /* older build */ }
 }
 
 /** A test notification a few seconds from now, through the same channel. */
 export async function testNative() {
   await setUp();
   await plugin().schedule({ notifications: [{ id: 1, title: 'WhenDose', body: 'This is how reminders will look.', channelId: CHANNEL_ID, schedule: { at: new Date(Date.now() + 3000), allowWhileIdle: true } }] });
+}
+
+/** Give the native nudge handler the family key, or clear it. @param {string | null} key */
+export async function setNativeSyncKey(key) {
+  if (!isNative()) return;
+  try { await cap()?.Plugins?.WhenDose?.setSyncKey({ key: key ?? '' }); } catch { /* older build */ }
+}
+
+let pushStarted = false;
+/**
+ * Register for Firebase messages (Android app only). `onToken` gets this
+ * phone's push token; `onNudge` runs when a nudge arrives with the app open.
+ * @param {(token: string) => void} onToken @param {() => void} onNudge
+ */
+export async function registerPush(onToken, onNudge) {
+  const pn = cap()?.Plugins?.PushNotifications;
+  if (!isNative() || !pn || pushStarted) return;
+  pushStarted = true;
+  try {
+    await pn.addListener('registration', (/** @type {any} */ t) => { if (typeof t?.value === 'string') onToken(t.value); });
+    await pn.addListener('pushNotificationReceived', () => onNudge());
+    await pn.register();
+  } catch { pushStarted = false; }
+}
+
+/**
+ * The nudge for linked phones: as many upcoming notices as fit, in the
+ * plugin's own form, and whether that is all of them.
+ * @param {Notice[]} upcoming
+ */
+export function nudgePayload(upcoming, count = upcoming.length) {
+  const list = upcoming.slice(0, Math.min(count, MAX_NATIVE));
+  return { v: 1, complete: list.length === upcoming.length, notices: list.map(toNative) };
 }

@@ -15,6 +15,8 @@ import * as db from './db.js';
 import { SYNC_URL } from './config.js';
 import { newFamily, linkText, readLink, authToken, seal, open } from './synccrypto.js';
 import { outgoing, chunk } from './syncmerge.js';
+import { isNative, setNativeSyncKey, registerPush, nudgePayload } from './native.js';
+import { upcomingNotices } from './reminders.js';
 
 /**
  * @typedef {{fid: string, key: string, pushed: number, cursor: number, linkedAt: number, sendAll?: boolean}} SyncConfig
@@ -22,6 +24,8 @@ import { outgoing, chunk } from './syncmerge.js';
  */
 
 const BATCH_CHARS = 150000;
+/** Largest sealed nudge the server passes on (it must fit in a Firebase message). */
+const MAX_NUDGE_CHARS = 3400;
 const PUSH_BLOBS = 20;
 /* A record stamped just before a send can commit just after it read the
    database. Sending from a little earlier than the last send means such a
@@ -41,6 +45,8 @@ export async function startFamily() {
   const f = await newFamily();
   await db.syncData.stampAll();
   await db.meta.set('sync', /** @type {SyncConfig} */ ({ ...f, pushed: 0, cursor: 0, linkedAt: Date.now(), sendAll: true }));
+  await setNativeSyncKey(f.key);
+  startPush();
   syncSoon(0);
   return linkText(f);
 }
@@ -62,6 +68,8 @@ export async function joinFamily(text, opts) {
   if (opts.replace) await db.syncData.clear();
   else await db.syncData.stampAll();
   await db.meta.set('sync', /** @type {SyncConfig} */ ({ ...f, pushed: 0, cursor: 0, linkedAt: Date.now(), sendAll: true }));
+  await setNativeSyncKey(f.key);
+  startPush();
   return syncNow();
 }
 
@@ -69,6 +77,8 @@ export async function joinFamily(text, opts) {
 export async function unlink() {
   await db.meta.set('sync', null);
   await db.meta.set('syncStatus', {});
+  await db.meta.set('pushSentFor', null);
+  await setNativeSyncKey(null);
 }
 
 /** @type {Promise<{status: 'off' | 'ok' | 'error', merged?: number}> | null} */
@@ -122,8 +132,10 @@ async function run() {
     if (out.length) {
       const blobs = [];
       for (const part of chunk(out, BATCH_CHARS)) blobs.push(await seal(cfg.key, { v: 1, changes: part }));
+      const nudge = await sealedNudge(cfg.key);
       for (let i = 0; i < blobs.length; i += PUSH_BLOBS) {
-        const res = await fetch(`${base}/push`, { method: 'POST', headers: { ...auth, 'Content-Type': 'application/json' }, body: JSON.stringify({ dev: me, blobs: blobs.slice(i, i + PUSH_BLOBS) }) });
+        const last = i + PUSH_BLOBS >= blobs.length;
+        const res = await fetch(`${base}/push`, { method: 'POST', headers: { ...auth, 'Content-Type': 'application/json' }, body: JSON.stringify({ dev: me, blobs: blobs.slice(i, i + PUSH_BLOBS), ...(last && nudge ? { nudge } : {}) }) });
         if (!res.ok) throw new Error(`send failed (${res.status})`);
       }
       pushed = Math.min(Math.max(...out.map((c) => /** @type {number} */ (c.r._u))), started - OVERLAP_MS);
@@ -158,9 +170,43 @@ async function run() {
   }
 }
 
+/**
+ * The new reminder times, sealed for the other phones, so a closed app can
+ * move its alarms (NudgeService). As many as fit; '' if none.
+ * @param {string} key
+ */
+async function sealedNudge(key) {
+  const upcoming = await upcomingNotices();
+  for (let n = upcoming.length; n >= 0; n -= 1) {
+    const sealed = await seal(key, nudgePayload(upcoming, n));
+    if (sealed.length <= MAX_NUDGE_CHARS) return sealed;
+  }
+  return '';
+}
+
+/** Android app: register this phone's push token with the family, once per token. */
+function startPush() {
+  if (!isNative()) return;
+  registerPush(async (token) => {
+    const cfg = await syncConfig();
+    if (!cfg) return;
+    const sentFor = await db.meta.get('pushSentFor', null);
+    if (sentFor === `${cfg.fid}:${token}`) return;
+    try {
+      const res = await fetch(`${SYNC_URL}/v1/sync/${cfg.fid}/device`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${await authToken(cfg.key)}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dev: db.deviceId(), fcm: token }),
+      });
+      if (res.ok) await db.meta.set('pushSentFor', `${cfg.fid}:${token}`);
+    } catch { /* tried again next launch */ }
+  }, () => syncNow());
+}
+
 /** Start the background rhythm: on open, every couple of minutes while open, and on returning to the front. */
 export function startSync() {
   db.setOnWrite(() => syncSoon());
+  syncConfig().then(async (cfg) => { if (cfg) { await setNativeSyncKey(cfg.key); startPush(); } });
   syncSoon(500);
   setInterval(() => { if (document.visibilityState === 'visible') syncNow(); }, 2 * 60 * 1000);
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') syncNow(); });

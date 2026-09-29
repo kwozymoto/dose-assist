@@ -87,6 +87,14 @@ async function cycle() {
   if (due.length > 0) onFire();
 }
 
+/** Upcoming notices from the shared record, as this phone would schedule them. For the nudge to a linked phone. */
+export async function upcomingNotices() {
+  if (!state.rules) return [];
+  const [active, children, doses] = await Promise.all([db.reminders.active(), db.children.list(), db.doses.all()]);
+  const notices = planNotices({ reminders: active, children, doses, rules: state.rules, timeZone: timeZone() });
+  return triage(notices, now(), STALE_GRACE_MS).upcoming;
+}
+
 /** @param {Notice} n */
 async function show(n) {
   buzz(200);

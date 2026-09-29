@@ -15,3 +15,7 @@ desktop.ini
 
 # Android: www/ is copied from the shell by tools/build_www.mjs; never edit it.
 www/
+
+# Firebase config for the Android app (from the owner's Firebase project). Kept out of git;
+# put it in android/app/ to build. The service account key lives outside the repo.
+android/app/google-services.json
