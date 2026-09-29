@@ -180,8 +180,18 @@ function buttonView(r, t, tz) {
         };
       }
       break;
-    case 'limit':
+    case 'limit': {
+      // Say when it is allowed again, so nobody has to work it out at 3am.
+      const next = r.check.nextAllowedAt;
+      if (next !== null && next > t) {
+        return {
+          state: 'Not now', cls: 'dose-limit', icon: 'stop', label: 'Allowed again in', until: next,
+          line: `${r.card.title}. Allowed again from ${formatWhen(next, t, tz)}`,
+          spoken: `Not now. ${r.card.title}. Allowed again from ${formatWhen(next, t, tz)}, in ${formatDuration(next - t, { up: true })}.`,
+        };
+      }
       return { state: 'Not now', cls: 'dose-limit', icon: 'stop', line: r.card.title, spoken: `Not now. ${r.card.title}. ${r.card.detail ?? ''}` };
+    }
     case 'blocked':
       return { state: 'See a doctor', cls: 'dose-limit', icon: 'stop', line: GUIDANCE.underMinAge.text, spoken: `${r.card.title}. ${GUIDANCE.underMinAge.text}` };
     default:
