@@ -16,10 +16,32 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    // Release signing: the WhenDose key lives outside the repo. android/local.properties
+    // (git-ignored) says where its properties file is:
+    //   whendose.signing=D\:/WhenDose Secrets/keystore.properties
+    // Keep that key backed up: without it, installed apps cannot be updated.
+    def localProps = new Properties()
+    def localFile = rootProject.file('local.properties')
+    if (localFile.exists()) localFile.withInputStream { localProps.load(it) }
+    def signingPath = localProps.getProperty('whendose.signing')
+    signingConfigs {
+        if (signingPath && file(signingPath).exists()) {
+            def sp = new Properties()
+            file(signingPath).withInputStream { sp.load(it) }
+            release {
+                storeFile file(sp.getProperty('storeFile'))
+                storePassword sp.getProperty('storePassword')
+                keyAlias sp.getProperty('keyAlias')
+                keyPassword sp.getProperty('keyPassword')
+            }
+        }
+    }
     buildTypes {
         release {
-            minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            if (signingPath && file(signingPath).exists()) signingConfig signingConfigs.release
         }
     }
 }

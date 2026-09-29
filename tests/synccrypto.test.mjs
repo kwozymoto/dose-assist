@@ -12,13 +12,21 @@ describe('sync encryption', () => {
     assert.notEqual(f.key, g.key);
   });
 
-  test('the pairing code round-trips, and anything else is refused', async () => {
+  test('the pairing code is a link: the family id and key only after the #, which is never sent to a server', async () => {
     const f = await newFamily();
-    const text = linkText(f);
-    assert.ok(text.startsWith('whendose:link:1:'));
+    const text = linkText(f, 'https://sync.example.dev');
+    assert.equal(text, `https://sync.example.dev/link#1:${f.fid}:${f.key}`);
+    assert.equal(new URL(text).pathname, '/link');
+    assert.equal(new URL(text).search, '');
     assert.deepEqual(readLink(text), f);
     assert.deepEqual(readLink(`  ${text}\n`), f);
-    for (const bad of ['', 'hello', 'whendose:link:2:a:b', `whendose:link:1:${f.fid}`, `whendose:link:1:${f.fid}:short`, 'https://evil.example/']) {
+    assert.deepEqual(readLink(`whendose://link#1:${f.fid}:${f.key}`), f);
+  });
+
+  test('the older whendose:link: form still reads, and anything else is refused', async () => {
+    const f = await newFamily();
+    assert.deepEqual(readLink(`whendose:link:1:${f.fid}:${f.key}`), f);
+    for (const bad of ['', 'hello', 'whendose:link:2:a:b', `whendose:link:1:${f.fid}`, `whendose:link:1:${f.fid}:short`, 'https://evil.example/', `https://x.dev/other#1:${f.fid}:${f.key}`, `https://x.dev/link#2:${f.fid}:${f.key}`, `https://x.dev/link?q=1#1:${f.fid}:${f.key}`]) {
       assert.equal(readLink(bad), null, bad);
     }
   });

@@ -12,7 +12,8 @@
     "serve": "python -m http.server 8741",
     "android:sync": "node tools/build_www.mjs && npx cap sync android",
     "android:open": "npx cap open android",
-    "android:apk": "npm run android:sync && cd android && gradlew.bat assembleDebug"
+    "android:apk": "npm run android:sync && cd android && gradlew.bat assembleRelease",
+    "android:apk:debug": "npm run android:sync && cd android && gradlew.bat assembleDebug"
   },
   "devDependencies": {
     "@capacitor/cli": "^8.5.2",
@@ -24,7 +25,6 @@
   "dependencies": {
     "@capacitor/android": "^8.5.2",
     "@capacitor/app": "^8.1.1",
-    "@capacitor/barcode-scanner": "^3.1.2",
     "@capacitor/core": "^8.5.2",
     "@capacitor/local-notifications": "^8.3.1",
     "@capacitor/push-notifications": "^8.1.2"

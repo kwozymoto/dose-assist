@@ -91,12 +91,15 @@ Build (needs the Android SDK and a JDK, e.g. both from Android Studio). Point `J
 
 ```bash
 npm run android:sync          # copy the shell into www/ and update android/
-npm run android:apk           # debug APK at android/app/build/outputs/apk/debug/app-debug.apk
+npm run android:apk           # signed, optimised release APK at android/app/build/outputs/apk/release/app-release.apk
+npm run android:apk:debug     # debug APK (signed with this PC's debug key: cannot update a release install)
 npm run android:open          # or open the project in Android Studio
 python tools/android_icons.py # redraw launcher and notification icons from icons/
 ```
 
 After changing any shell file, run `npm run android:sync` again before building.
+
+**Signing.** Release builds are signed with the WhenDose key (`whendose-release.jks`), kept outside the repo with its passwords in `keystore.properties`. `android/local.properties` (git-ignored) points to it: `whendose.signing=D\:/WhenDose Secrets/keystore.properties`. Back that folder up: without the key, installed apps cannot be updated without deleting their data. Its SHA-256 fingerprint is in `sync-worker/wrangler.toml` (`APP_CERT_SHA256`) for App Links.
 
 ## Linked phones (sync)
 

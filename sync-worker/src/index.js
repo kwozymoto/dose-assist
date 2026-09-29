@@ -21,6 +21,7 @@
 import { DurableObject } from 'cloudflare:workers';
 import { validFid, validDev, validBlobs, bearer, sha256hex, sameHex, pageOf, MAX_FAMILY_CHARS, MAX_BLOBS_PER_PUSH, MAX_BLOB_CHARS } from './lib.js';
 import { sendNudge, MAX_NUDGE_CHARS } from './fcm.js';
+import { assetLinks, LINK_PAGE } from './pages.js';
 
 const MAX_REQUEST = MAX_BLOBS_PER_PUSH * MAX_BLOB_CHARS + 4096;
 
@@ -37,6 +38,20 @@ export default {
       'Cache-Control': 'no-store',
     };
     const reply = (status, body) => new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json' } });
+    // Public pages for pairing (no origin check: a phone's camera or browser opens these).
+    const path = new URL(req.url).pathname;
+    if (req.method === 'GET' && path === '/.well-known/assetlinks.json') {
+      const fps = String(env.APP_CERT_SHA256 || '').split(',').map((x) => x.trim()).filter(Boolean);
+      return new Response(JSON.stringify(assetLinks(fps)), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'max-age=3600' } });
+    }
+    if (req.method === 'GET' && path === '/link') {
+      return new Response(LINK_PAGE, { headers: {
+        'Content-Type': 'text/html; charset=utf-8',
+        'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+        'Referrer-Policy': 'no-referrer',
+        'Cache-Control': 'no-store',
+      } });
+    }
     if (req.method === 'OPTIONS') return new Response(null, { headers: cors });
     if (!origins.includes(origin)) return reply(403, { error: 'origin not allowed' });
 

@@ -1,8 +1,10 @@
 // @ts-check
 /* Linked phones: pair two phones by QR code so they share one record.
 
-   The first phone makes the family and shows a QR code holding the family
-   id and key. The second scans it (the Android app's camera) or pastes it.
+   The first phone makes the family and shows a QR code: a link to the sync
+   server's /link page with the family id and key after the #. The second
+   phone's own camera opens it straight in WhenDose (Android App Links), or
+   the code can be sent as a message and tapped, or pasted.
    The code is the key: anyone who has it can read this family's records, so
    the screen says to show it only to the other parent's phone. */
 
@@ -11,7 +13,6 @@ import * as db from '../db.js';
 import { renderSVG } from '../vendor/uqr.js';
 import { syncConfigured, syncConfig, syncStatus, startFamily, currentLink, joinFamily, unlink, syncNow } from '../sync.js';
 import { readLink } from '../synccrypto.js';
-import { isNative } from '../native.js';
 import { formatAgo } from '../format.js';
 import { now } from '../clock.js';
 
@@ -26,20 +27,18 @@ export async function linkView(ctx) {
   }
   const cfg = await syncConfig();
   if (ctx.query.get('show') === '1') return showCode(ctx, back);
+  const incoming = takeIncoming();
+  if (incoming) return confirmIncoming(ctx, back, incoming, cfg);
   if (cfg) return linked(ctx, back);
 
-  const scan = async () => {
-    const text = await scanCode();
-    if (text) await join(ctx, text);
-  };
-  const paste = /** @type {HTMLTextAreaElement} */ (h('textarea', { class: 'input user-text', id: 'link-paste', rows: 3, placeholder: 'whendose:link:1:…' }));
+  const paste = /** @type {HTMLTextAreaElement} */ (h('textarea', { class: 'input user-text', id: 'link-paste', rows: 3, placeholder: 'https://…/link#1:…' }));
   const node = h('div', { class: 'stack' },
     h('p', null, 'Link your phone and your partner’s, so a dose either of you logs shows on both and every check counts both.'),
     h('p', { class: 'small muted' }, 'Everything is locked with a key that only your two phones have. The sync server stores only locked data it cannot read.'),
     h('a', { class: 'btn btn-primary btn-big', href: '#/link?show=1' }, icon('share'), 'This is the first phone: show a code'),
-    isNative() ? h('button', { class: 'btn btn-secondary btn-big', type: 'button', onclick: scan }, icon('plus'), 'Scan the other phone’s code') : null,
+    h('p', null, h('strong', null, 'Second phone? '), 'Open the phone’s camera and point it at the code on the first phone, then tap the link. WhenDose opens and links.'),
     h('details', null,
-      h('summary', null, isNative() ? 'Or paste a code' : 'Paste the other phone’s code'),
+      h('summary', null, 'Or paste a code'),
       h('div', { class: 'stack-sm' },
         h('label', { class: 'label', for: 'link-paste' }, 'Link code'),
         paste,
@@ -60,7 +59,7 @@ async function showCode(ctx, back) {
     } catch { /* cancelled */ }
   };
   const node = h('div', { class: 'stack' },
-    h('p', null, 'On the other phone: Settings → Linked phones → Scan the other phone’s code.'),
+    h('p', null, 'On the other phone, open the camera, point it at this code and tap the link. WhenDose opens and links.'),
     qr,
     h('p', { class: 'small muted' }, 'This code is the key to your records. Only show it to your partner’s phone.'),
     h('button', { class: 'btn btn-secondary', type: 'button', onclick: share }, icon('share'), 'Send the code instead'),
@@ -100,17 +99,33 @@ async function linked(ctx, back) {
   return { title: 'Linked phones', back, node };
 }
 
-/** The camera, in the Android app. @returns {Promise<string | null>} */
-async function scanCode() {
-  const scanner = /** @type {any} */ (globalThis).Capacitor?.Plugins?.CapacitorBarcodeScanner;
-  if (!scanner) { toast('Scanning needs the WhenDose app. Paste the code instead.'); return null; }
-  try {
-    // hint 0 = QR code; camera 1 = back; orientation 3 = adaptive.
-    const r = await scanner.scanBarcode({ hint: 0, scanInstructions: 'Point the camera at the code on the other phone', scanButton: false, scanText: ' ', cameraDirection: 1, scanOrientation: 3 });
-    return typeof r?.ScanResult === 'string' ? r.ScanResult : null;
-  } catch {
-    return null;
+/* A pairing link that opened the app (from the camera, or tapped in a message). */
+/** @type {string | null} */
+let pending = null;
+/** Hold a link that opened the app, for the Linked phones screen. @param {string} text */
+export function setIncoming(text) { pending = readLink(text) ? text.trim() : null; return pending !== null; }
+function takeIncoming() { const t = pending; pending = null; return t; }
+
+/**
+ * Ask before joining: a link only links this phone when the parent says so.
+ * @param {Ctx} ctx @param {string} back @param {string} text @param {import('../sync.js').SyncConfig | null} cfg
+ * @returns {Screen}
+ */
+function confirmIncoming(ctx, back, text, cfg) {
+  const f = readLink(text);
+  if (cfg && f && cfg.fid === f.fid) {
+    return { title: 'Linked phones', back, node: h('div', { class: 'stack' }, h('p', null, 'This phone is already linked with that phone.'), h('a', { class: 'btn btn-primary', href: '#/link' }, 'OK')) };
   }
+  if (cfg) {
+    return { title: 'Linked phones', back, node: h('div', { class: 'stack' },
+      h('p', null, 'This phone is linked with a different phone. Unlink it first (Settings → Linked phones), then open the link again.'),
+      h('a', { class: 'btn btn-primary', href: '#/link' }, 'OK')) };
+  }
+  return { title: 'Link this phone?', back, node: h('div', { class: 'stack' },
+    h('p', null, 'This link joins this phone to your partner’s WhenDose, so both phones share one record of children, medicines and doses.'),
+    h('p', { class: 'small muted' }, 'Only continue if the link came from your partner’s phone.'),
+    h('button', { class: 'btn btn-primary btn-big', type: 'button', onclick: () => join(ctx, text) }, 'Link this phone'),
+    h('a', { class: 'btn btn-secondary', href: '#/settings' }, 'Not now')) };
 }
 
 /** @param {Ctx} ctx @param {string} text */

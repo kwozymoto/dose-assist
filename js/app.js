@@ -15,7 +15,7 @@ import { onboarding } from './views/onboarding.js';
 import { give } from './views/give.js';
 import { childDetail, childForm, childSummary } from './views/child.js';
 import { gapView } from './views/gap.js';
-import { linkView } from './views/link.js';
+import { linkView, setIncoming } from './views/link.js';
 import { startSync } from './sync.js';
 import { doseEdit } from './views/dose.js';
 import { bottlesList, bottleNew, bottleDetail } from './views/bottles.js';
@@ -221,6 +221,13 @@ async function boot() {
   await render();
   startReminders({ onFire: () => softRefresh() });
   startSync();
+  // A pairing link (the camera, or tapped in a message) opened the app.
+  const App = /** @type {any} */ (globalThis).Capacitor?.Plugins?.App;
+  if (App) {
+    const opened = (/** @type {string | undefined} */ url) => { if (url && setIncoming(url)) go('/link?incoming=1'); };
+    App.addListener('appUrlOpen', (/** @type {any} */ e) => opened(e?.url));
+    App.getLaunchUrl().then((/** @type {any} */ r) => opened(r?.url)).catch(() => {});
+  }
   // Another phone's changes arrived: new reminder times, and fresh screens,
   // except where someone is typing (a form would lose what they entered).
   addEventListener('whendose:synced', () => {

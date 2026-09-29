@@ -49,3 +49,16 @@ describe('sync server checks', () => {
     assert.equal(p.more, true);
   });
 });
+
+describe('pairing pages', async () => {
+  const { assetLinks, LINK_PAGE, PACKAGE } = await import('../sync-worker/src/pages.js');
+  test('assetlinks names the app and its certificate, for App Links', () => {
+    assert.deepEqual(assetLinks(['AA:BB']), [{ relation: ['delegate_permission/common.handle_all_urls'], target: { namespace: 'android_app', package_name: 'nz.whendose.app', sha256_cert_fingerprints: ['AA:BB'] } }]);
+    assert.equal(PACKAGE, 'nz.whendose.app');
+  });
+  test('the fallback page loads nothing from anywhere and only hands the code to the app', () => {
+    assert.doesNotMatch(LINK_PAGE, /<(link|img|iframe)\b|src=|https?:\/\/(?!\/)/i);
+    assert.match(LINK_PAGE, /whendose:\/\/link#/);
+    assert.match(LINK_PAGE, /location\.hash/);
+  });
+});

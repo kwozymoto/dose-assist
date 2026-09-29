@@ -41,20 +41,20 @@ export const syncStatus = () => db.meta.get('syncStatus', {});
 /** Start a family on this phone. Returns the text for the QR code. */
 export async function startFamily() {
   const existing = await syncConfig();
-  if (existing) return linkText(existing);
+  if (existing) return linkText(existing, SYNC_URL);
   const f = await newFamily();
   await db.syncData.stampAll();
   await db.meta.set('sync', /** @type {SyncConfig} */ ({ ...f, pushed: 0, cursor: 0, linkedAt: Date.now(), sendAll: true }));
   await setNativeSyncKey(f.key);
   startPush();
   syncSoon(0);
-  return linkText(f);
+  return linkText(f, SYNC_URL);
 }
 
 /** The code to show another phone, if this one is linked. */
 export async function currentLink() {
   const c = await syncConfig();
-  return c ? linkText(c) : null;
+  return c ? linkText(c, SYNC_URL) : null;
 }
 
 /**

@@ -10,7 +10,7 @@
 
 import { b64url, unb64url } from './webpush.js';
 
-const PREFIX = 'whendose:link:1:';
+const OLD_PREFIX = 'whendose:link:1:';
 const enc = new TextEncoder();
 const dec = new TextDecoder();
 
@@ -19,16 +19,27 @@ export async function newFamily() {
   return { fid: b64url(crypto.getRandomValues(new Uint8Array(16))), key: b64url(crypto.getRandomValues(new Uint8Array(32))) };
 }
 
-/** What the QR code says. @param {{fid: string, key: string}} f */
-export const linkText = (f) => `${PREFIX}${f.fid}:${f.key}`;
+/**
+ * What the QR code says: a link to the sync server's /link page, with the
+ * family id and key after the #. A phone's camera opens it in WhenDose
+ * (Android App Links); the part after # is never sent to any server.
+ * @param {{fid: string, key: string}} f @param {string} base  the sync server
+ */
+export const linkText = (f, base) => `${base}/link#1:${f.fid}:${f.key}`;
 
-/** A scanned or pasted code, or null if it is not one of ours. @param {string} text */
-export function readLink(text) {
-  const t = String(text ?? '').trim();
-  if (!t.startsWith(PREFIX)) return null;
-  const [fid, key, ...rest] = t.slice(PREFIX.length).split(':');
+/** @param {string} s */
+const parts = (s) => {
+  const [fid, key, ...rest] = s.split(':');
   if (rest.length || !/^[A-Za-z0-9_-]{22}$/.test(fid ?? '') || !/^[A-Za-z0-9_-]{43}$/.test(key ?? '')) return null;
   return { fid, key };
+};
+
+/** A scanned, tapped or pasted code, or null if it is not one of ours. @param {string} text */
+export function readLink(text) {
+  const t = String(text ?? '').trim();
+  if (t.startsWith(OLD_PREFIX)) return parts(t.slice(OLD_PREFIX.length));
+  const m = /^(?:https:\/\/[A-Za-z0-9.-]+(?::\d+)?|whendose:\/\/)\/?link#1:([^?#\s]+)$/.exec(t);
+  return m ? parts(m[1]) : null;
 }
 
 /** @param {string} key @param {KeyUsage[]} use @param {'AES-GCM' | 'HMAC'} alg */

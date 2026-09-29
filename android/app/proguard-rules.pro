@@ -19,3 +19,9 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# WhenDose: our own classes (the Capacitor plugin, the Firebase service) and the
+# notifications plugin's scheduler, which Nudge.java calls directly.
+-keep class nz.whendose.app.** { *; }
+-keep class com.capacitorjs.plugins.localnotifications.** { *; }
+-keep class com.capacitorjs.plugins.pushnotifications.** { *; }
