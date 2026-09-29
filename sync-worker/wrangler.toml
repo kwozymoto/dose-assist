@@ -5,7 +5,7 @@ compatibility_date = "2026-08-01"
 # Where linked phones call from: the Android app (Capacitor serves the app
 # at https://localhost), and the web app during local testing.
 [vars]
-ALLOWED_ORIGINS = "https://localhost,http://localhost:8741,http://127.0.0.1:8741"
+ALLOWED_ORIGINS = "https://localhost,http://localhost:8741,http://127.0.0.1:8741,http://localhost:8743,http://127.0.0.1:8743"
 # SHA-256 of the Android app's release signing certificate (public), for App
 # Links: a pairing QR code opens in the app. Comma-separate to add another.
 APP_CERT_SHA256 = "A3:D1:78:D8:31:28:7B:CD:9B:73:A9:04:CE:FF:C2:B1:76:69:1F:A3:2B:D1:D4:41:D7:53:4D:CB:DE:AE:DE:80"
