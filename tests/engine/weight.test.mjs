@@ -83,14 +83,29 @@ describe('checkWeight', () => {
     assert.equal(r.stop, true);
   });
 
-  test('property: a stop only ever comes with a verified, recent 24-hour excess', () => {
+  test('property: a stop only ever comes with a recent weight and a verified 24-hour excess or a 1.5 times single dose', () => {
     fc.assert(fc.property(
       fc.double({ min: 2, max: 80, noNaN: true }), fc.integer({ min: 1, max: 1500 }), fc.integer({ min: 0, max: 4000 }), fc.integer({ min: 0, max: 400 }),
       (kg, dose, win, ageDays) => {
         const r = go({ weightKg: kg, doseMg: dose, windowMg: win, weighedAt: NOW - ageDays * DAY });
         if (!r.stop) return true;
-        return r.perDay !== null && r.perDay.verified && !r.stale && dose + win > 60 * kg;
+        if (r.stale) return false;
+        return (r.perDay !== null && r.perDay.verified && dose + win > 60 * kg) || (r.bigDose && dose >= 1.5 * 15 * kg - 0.01);
       },
     ), { numRuns: 1000 });
+  });
+});
+
+describe('one dose far over the usual mg per kg', () => {
+  test('1.5 times the usual dose or more, with a recent weight: a stop', () => {
+    const usual = RULE.mgPerKg * 12;
+    assert.equal(go({ doseMg: usual * 1.5 }).bigDose, true);
+    assert.equal(go({ doseMg: usual * 1.5 }).stop, true);
+    assert.equal(go({ doseMg: usual * 1.4 }).bigDose, false);
+  });
+  test('an old weight never stops it', () => {
+    const usual = RULE.mgPerKg * 12;
+    const r = go({ doseMg: usual * 2, weighedAt: NOW - FRESH - DAY });
+    assert.equal(r.bigDose, false);
   });
 });

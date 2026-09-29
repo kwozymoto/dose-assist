@@ -116,7 +116,7 @@ export async function settings(ctx) {
       inexact ? h('div', { class: 'notice notice-warn' }, h('p', null, 'Your phone may deliver reminders a few minutes late. Allow alarms and reminders for WhenDose so they come on time.'), h('button', { class: 'btn btn-secondary', onclick: async () => { await openExactAlarmSettings(); ctx.refresh(); } }, 'Allow alarms')) : null,
       perm === 'granted' ? h('button', { class: 'btn btn-secondary', onclick: testNotification }, 'Send a test notification') : null,
       h('p', { class: 'small muted' }, active.length === 0 ? 'No reminders set.' : `${active.length} reminder${active.length === 1 ? '' : 's'} set.`),
-      active.length ? h('button', { class: 'btn btn-quiet', onclick: async () => { for (const r of active) await db.reminders.cancel(r.id, now()); await refreshReminders(); toast('Reminders cleared'); ctx.refresh(); } }, 'Clear all reminders') : null,
+      active.length ? h('button', { class: 'btn btn-quiet', onclick: async () => { if (!(await confirmDialog({ title: 'Clear all reminders?', body: syncConfigured() ? 'This clears them on your linked phone too.' : 'Every reminder on this phone will be cancelled.', confirm: 'Clear them', danger: true }))) return; for (const r of active) await db.reminders.cancel(r.id, now()); await refreshReminders(); toast('Reminders cleared'); ctx.refresh(); } }, 'Clear all reminders') : null,
     ),
     h('section', { class: 'stack-sm' },
       h('h2', null, 'Linked phones'),

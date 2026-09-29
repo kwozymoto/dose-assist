@@ -143,7 +143,7 @@ describe('cardStatus', () => {
   test('none', () => {
     const s = status([]);
     assert.equal(s.kind, 'none');
-    assert.equal(s.title, 'No alpha in the last 24 hours');
+    assert.equal(s.title, 'Alpha allowed now');
   });
 
   test('ok', () => {

@@ -61,7 +61,7 @@ import { clampGap } from '../engine/gap.js';
  * @property {string} bottleId
  * @property {number} amount
  * @property {number | null} givenAt   null = "just now", fixed at the moment of logging
- * @property {'ALREADY_GIVEN' | null} override
+ * @property {'ALREADY_GIVEN' | 'DOCTOR_ADVISED' | null} override
  * @property {string} [statusSeen]    the status the parent was shown and accepted
  * @property {string} [situation]     fingerprint of the situation the override was given for
  * @property {boolean} [remember]      save the amount as the child's usual dose when logged
@@ -257,10 +257,15 @@ async function amountStep(ctx, child, bottle, base) {
   const form = h('form', {
     novalidate: true,
     class: 'stack',
-    onsubmit: (/** @type {Event} */ e) => {
+    onsubmit: async (/** @type {Event} */ e) => {
       e.preventDefault();
       const v = parse();
-      if (v === null) { error.textContent = `Enter the amount in ${unit}, for example ${liquid ? '5' : '1'}.`; error.hidden = false; amount.focus(); return; }
+      if (v === null) { error.textContent = `Enter the amount in ${unit}, using numbers such as 2.5 (not .5).`; error.hidden = false; amount.focus(); return; }
+      // A tiny amount is almost always a slip, and would still restart the wait and use up one of the day's doses.
+      if (liquid ? v < 0.5 : v < 0.25) {
+        const ok = await confirmDialog({ title: `Only ${formatAmount(v, bottle.form)}?`, body: 'That is a very small amount. It would still count as a whole dose for the wait and the daily count. Check the number.', confirm: `Yes, ${formatAmount(v, bottle.form)}`, cancel: 'Let me fix it' });
+        if (!ok) { amount.focus(); return; }
+      }
       let givenAt = null;
       if (whenEarlier.checked) {
         givenAt = fromLocalInput(at.value, tz);
@@ -417,7 +422,7 @@ async function checkStep(ctx, child, bottle, base) {
     const reason = ic.exceedReason;
     view = {
       title: 'More than the limit',
-      kind: 'limit', icon: 'stop',
+      kind: reason === 'SINGLE_DOSE' || reason === 'OVER_DAILY_MAX' ? 'danger' : 'limit', icon: 'stop',
       big: reason === 'SINGLE_DOSE' && rule
         ? `${formatAmount(d.amount, bottle.form)} of this bottle is ${formatMg(mg)} of ${ing}. The most for one dose is ${formatMg(rule.maxSingleMg)}.`
         : reason === 'OVER_DAILY_MAX' && rule
@@ -446,7 +451,17 @@ async function checkStep(ctx, child, bottle, base) {
   } else if (check.status === 'WEIGHT_LIMIT') {
     const [wIng, wc] = /** @type {[string, WeightCheck]} */ (check.weight?.by.find(([, x]) => x.stop));
     const day = /** @type {NonNullable<WeightCheck['perDay']>} */ (wc.perDay);
-    view = {
+    const one = wc.bigDose ? /** @type {NonNullable<WeightCheck['perDose']>} */ (wc.perDose) : null;
+    if (one) view = {
+      title: 'Far too much for their weight',
+      kind: 'danger', icon: 'stop',
+      big: `${formatAmount(d.amount, bottle.form)} is ${formatMg(one.mg)} of ${wIng}: ${Math.round((one.mg / one.maxMg) * 10) / 10} times the usual dose for ${child.name}’s weight (${check.weight?.kg} kg, up to ${formatMg(one.maxMg)}).`,
+      lines: [
+        'Check the amount and the strength on the label. A slip of one digit (25 for 2.5) looks like this.',
+        h('a', { href: `#/child/${child.id}/edit` }, `If ${child.name}’s weight has changed, update it`),
+      ],
+    };
+    else view = {
       title: 'Too much for their weight',
       kind: 'limit', icon: 'stop',
       big: `With this dose, ${child.name} would have had ${formatMg(day.totalMg)} of ${wIng} in 24 hours. For ${check.weight?.kg} kg the most is ${formatMg(day.maxMg)}.`,
@@ -489,6 +504,16 @@ async function checkStep(ctx, child, bottle, base) {
     d.override = 'ALREADY_GIVEN';
     ctx.go(`${base}&step=confirm`);
   };
+  const doctorSaid = async () => {
+    const ok = await confirmDialog({
+      title: 'Give more than the usual limit for their weight?',
+      body: `This is more ${names} than is usual for ${child.name}’s weight. Too much can cause serious harm, and it may not show at first. Only go ahead if a doctor or pharmacist told you to give this exact amount. If you are not sure, call Healthline on ${EMERGENCY.healthline.display}.`,
+      confirm: 'A doctor told us: continue', cancel: 'Go back', danger: true,
+    });
+    if (!ok) return;
+    d.override = 'DOCTOR_ADVISED';
+    ctx.go(`${base}&step=confirm`);
+  };
   const remind = async () => {
     await addReminder({ childId: child.id, kind: 'next_allowed', ingredients: ingredientsOf(bottle), bottleId: bottle.id });
     draft = null;
@@ -515,6 +540,7 @@ async function checkStep(ctx, child, bottle, base) {
             ? h('a', { class: 'btn btn-primary btn-big', href: `tel:${EMERGENCY.healthline.tel}` }, icon('phone'), `Call Healthline ${EMERGENCY.healthline.display}`)
             : h('a', { class: 'btn btn-primary btn-big', href: '#/' }, 'Don’t give it now'),
         check.status === 'BLOCKED' ? h('a', { class: 'btn btn-secondary', href: '#/' }, 'Back home') : null,
+        check.status === 'WEIGHT_LIMIT' ? h('button', { class: 'btn btn-danger-quiet', onclick: doctorSaid }, 'A doctor or pharmacist told us to give this') : null,
         canRemind && check.nextAllowedAt ? h('button', { class: 'btn btn-secondary', onclick: remind }, icon('bell'), `Remind me at ${formatTime(check.nextAllowedAt, tz)}`) : null,
         check.status === 'BLOCKED' ? null : h('p', { class: 'small muted' }, 'If it was given by mistake, it still needs to go on the record:'),
         h('button', { class: 'btn btn-quiet', onclick: alreadyGiven }, 'It has already been given: record it'),
@@ -547,7 +573,8 @@ function situation(check) {
 function overrideCovers(d, check) {
   if (check.status === 'OK') return true;
   if (!d.override || d.situation !== situation(check)) return false;
-  return d.override === 'ALREADY_GIVEN';
+  // A doctor's or pharmacist's instruction answers a weight stop only.
+  return d.override === 'ALREADY_GIVEN' || (d.override === 'DOCTOR_ADVISED' && check.status === 'WEIGHT_LIMIT');
 }
 
 /* ---------------- step 5: confirm ---------------- */
@@ -774,6 +801,7 @@ async function doneStep(ctx) {
       ),
       h('a', { class: 'btn btn-quiet', href: '#/' }, 'No reminder'),
     ),
+    h('a', { class: 'btn btn-primary btn-big', href: '#/' }, icon('home'), 'Done'),
   );
   return { title: 'Dose logged', back: '/', node };
 }

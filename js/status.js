@@ -74,7 +74,7 @@ export function cardStatus(check, ingredient, rule, now, timeZone, plan) {
   }
 
   if (check.dosesInLast24h === 0 && !check.warnings.includes('NO_RULES_FOR_INGREDIENT')) {
-    return { kind: 'none', icon: 'dash', title: `No ${name} in the last 24 hours`, detail: lastLine, nextAllowedAt: null };
+    return { kind: 'none', icon: 'dash', title: `${name[0].toUpperCase()}${name.slice(1)} allowed now`, detail: lastLine || 'None in the last 24 hours', nextAllowedAt: null };
   }
 
   if (check.warnings.includes('NO_RULES_FOR_INGREDIENT')) {

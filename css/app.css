@@ -626,3 +626,8 @@ html, body { overflow-x: clip; }
 
 /* A danger notice's paragraphs keep their own height, so its call button stays in view. */
 .notice-danger > p { flex: none; }
+
+/* Far over a limit: the loudest stop. */
+.stop-danger .stop-head { background: var(--danger); color: var(--danger-text); border: 3px solid var(--danger); box-shadow: 0 0 0 4px color-mix(in srgb, var(--danger) 30%, transparent); }
+.stop-danger .stop-icon { color: var(--danger-text); }
+.stop-danger .stop-big { font-size: 1.45rem; }

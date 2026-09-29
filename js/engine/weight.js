@@ -14,6 +14,9 @@
 
 import { roundMg } from './time.js';
 
+/** One dose this many times the usual mg per kg (or more) is a stop, with a recent weight. */
+export const SINGLE_DOSE_STOP_FACTOR = 1.5;
+
 /** @typedef {import('./types.js').IngredientRule} IngredientRule */
 
 /**
@@ -22,6 +25,7 @@ import { roundMg } from './time.js';
  * @property {boolean} stale   weighed longer than freshMs before the dose
  * @property {{mg: number, perKg: number, maxPerKg: number, maxMg: number} | null} perDose   only when over
  * @property {{totalMg: number, perKg: number, maxPerKg: number, maxMg: number, verified: boolean} | null} perDay   only when over
+ * @property {boolean} bigDose  one dose at SINGLE_DOSE_STOP_FACTOR times the usual mg per kg or more, with a recent weight
  * @property {boolean} stop
  */
 
@@ -37,7 +41,7 @@ import { roundMg } from './time.js';
  * @returns {WeightCheck}
  */
 export function checkWeight({ rule, weightKg, weighedAt, doseMg, windowMg, at, freshMs }) {
-  const none = { known: false, stale: false, perDose: null, perDay: null, stop: false };
+  const none = { known: false, stale: false, perDose: null, perDay: null, bigDose: false, stop: false };
   if (typeof weightKg !== 'number' || !Number.isFinite(weightKg) || weightKg <= 0) return none;
   const stale = typeof weighedAt !== 'number' || at - weighedAt > freshMs;
 
@@ -56,5 +60,6 @@ export function checkWeight({ rule, weightKg, weighedAt, doseMg, windowMg, at, f
     }
   }
 
-  return { known: true, stale, perDose, perDay, stop: perDay !== null && perDay.verified && !stale };
+  const bigDose = perDose !== null && !stale && perDose.mg >= roundMg(perDose.maxMg * SINGLE_DOSE_STOP_FACTOR);
+  return { known: true, stale, perDose, perDay, bigDose, stop: bigDose || (perDay !== null && perDay.verified && !stale) };
 }
