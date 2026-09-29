@@ -62,14 +62,16 @@ export function forWire(store, r) {
  * @param {Record<string, Rec[]>} data  store name -> all its records
  * @param {string} me  this phone's id
  * @param {number} since
+ * @param {{all?: boolean}} [opts]  all: every stamped record, whichever phone made it (a new pairing)
  * @returns {Change[]}
  */
-export function outgoing(data, me, since) {
+export function outgoing(data, me, since, opts = {}) {
   /** @type {Change[]} */
   const out = [];
   for (const s of SYNCED_STORES) {
     for (const r of data[s] ?? []) {
-      if (r._d === me && typeof r._u === 'number' && r._u > since) out.push({ s, r: forWire(s, r) });
+      if (typeof r._u !== 'number') continue;
+      if (opts.all || (r._d === me && r._u > since)) out.push({ s, r: forWire(s, r) });
     }
   }
   return out;

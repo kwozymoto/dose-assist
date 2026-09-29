@@ -17,7 +17,7 @@ import { newFamily, linkText, readLink, authToken, seal, open } from './synccryp
 import { outgoing, chunk } from './syncmerge.js';
 
 /**
- * @typedef {{fid: string, key: string, pushed: number, cursor: number, linkedAt: number}} SyncConfig
+ * @typedef {{fid: string, key: string, pushed: number, cursor: number, linkedAt: number, sendAll?: boolean}} SyncConfig
  * @typedef {{okAt?: number, errorAt?: number, error?: string}} SyncStatus
  */
 
@@ -40,7 +40,7 @@ export async function startFamily() {
   if (existing) return linkText(existing);
   const f = await newFamily();
   await db.syncData.stampAll();
-  await db.meta.set('sync', /** @type {SyncConfig} */ ({ ...f, pushed: 0, cursor: 0, linkedAt: Date.now() }));
+  await db.meta.set('sync', /** @type {SyncConfig} */ ({ ...f, pushed: 0, cursor: 0, linkedAt: Date.now(), sendAll: true }));
   syncSoon(0);
   return linkText(f);
 }
@@ -61,7 +61,7 @@ export async function joinFamily(text, opts) {
   if (!f) throw new Error('That is not a WhenDose link code.');
   if (opts.replace) await db.syncData.clear();
   else await db.syncData.stampAll();
-  await db.meta.set('sync', /** @type {SyncConfig} */ ({ ...f, pushed: 0, cursor: 0, linkedAt: Date.now() }));
+  await db.meta.set('sync', /** @type {SyncConfig} */ ({ ...f, pushed: 0, cursor: 0, linkedAt: Date.now(), sendAll: true }));
   return syncNow();
 }
 
@@ -116,7 +116,8 @@ async function run() {
   const base = `${SYNC_URL}/v1/sync/${cfg.fid}`;
   try {
     const started = Date.now();
-    const out = outgoing(await db.syncData.snapshot(), me, cfg.pushed);
+    // A new pairing sends everything this phone has, once, including what it got from another phone before.
+    const out = outgoing(await db.syncData.snapshot(), me, cfg.pushed, { all: cfg.sendAll === true });
     let pushed = cfg.pushed;
     if (out.length) {
       const blobs = [];
@@ -146,7 +147,7 @@ async function run() {
     }
 
     const now = await syncConfig();
-    if (now && now.fid === cfg.fid) await db.meta.set('sync', { ...now, pushed: Math.max(now.pushed, pushed), cursor });
+    if (now && now.fid === cfg.fid) await db.meta.set('sync', { ...now, pushed: Math.max(now.pushed, pushed), cursor, sendAll: false });
     await db.meta.set('syncStatus', /** @type {SyncStatus} */ ({ okAt: Date.now() }));
     if (merged > 0) globalThis.dispatchEvent?.(new CustomEvent('whendose:synced', { detail: { merged } }));
     return { status: 'ok', merged };

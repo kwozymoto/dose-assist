@@ -77,6 +77,10 @@ describe('outgoing', () => {
     assert.deepEqual(out.map((c) => `${c.s}:${c.r.id}`).sort(), ['children:c1', 'doses:d2']);
     assert.equal(Math.max(...out.map((c) => c.r._u)), 12);
   });
+  test('a new pairing sends everything once, whichever phone made it', () => {
+    const data = { doses: [rec('d1', 5, 'me'), rec('d3', 9, 'other'), { id: 'd4' }] };
+    assert.deepEqual(outgoing(data, 'me', 0, { all: true }).map((c) => c.r.id), ['d1', 'd3']);
+  });
   test('meta and photos never sync', () => {
     assert.ok(!SYNCED_STORES.includes('meta'));
     assert.ok(!SYNCED_STORES.includes('photos'));

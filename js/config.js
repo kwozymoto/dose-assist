@@ -10,7 +10,7 @@ export const PUSH_URL = '';
 export const VAPID_PUBLIC_KEY = '';
 /* The sync server (sync-worker/), for linked phones. Empty until deployed:
    then Settings says sync is not set up. */
-export const SYNC_URL = '';
+export const SYNC_URL = /** @type {string} */ ('https://whendose-sync.fraser-e76.workers.dev');
 
 /* Undo stays available this long after logging (PLAN.md 8.1). */
 /* The "Test version: limits not yet checked by a pharmacist" notice. Off
