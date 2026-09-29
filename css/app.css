@@ -637,5 +637,8 @@ html, body { overflow-x: clip; }
 .gap-chips { grid-template-columns: repeat(auto-fit, minmax(56px, 1fr)); }
 .gap-chip { min-height: 56px; min-width: 56px; }
 details > summary { min-height: 48px; display: flex; align-items: center; cursor: pointer; }
-main p a:not(.btn), main li a:not(.btn) { display: inline-block; padding: 8px 0; }
+/* Plain text links only (cards and buttons have classes). */
+main p a:not([class]), main li a:not([class]) { display: inline-block; padding: 8px 0; }
+/* A time or duration never breaks in the middle ("6 m" / "ago)"). */
+.nw { white-space: nowrap; }
 .btn-quiet { min-height: 48px; }

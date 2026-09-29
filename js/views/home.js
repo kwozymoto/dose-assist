@@ -119,13 +119,30 @@ function childCard(child, rows, t) {
   );
 }
 
+/**
+ * Split "in 3 h 54 m · Last: 2:47pm (6 m ago)" into pieces that each stay on
+ * one line: the text wraps only between them.
+ * @param {string} text
+ */
+export function unbroken(text) {
+  const out = [];
+  for (const [i, part] of text.split(' · ').entries()) {
+    if (i) out.push(' · ');
+    // "Last: 2:47pm (6 m ago)": the label and time together, the bracket together.
+    const m = /^(.*?)(\s\([^)]*\))$/.exec(part);
+    if (m) out.push(h('span', { class: 'nw' }, m[1]), ' ', h('span', { class: 'nw' }, m[2].trim()));
+    else out.push(h('span', { class: 'nw' }, part));
+  }
+  return out;
+}
+
 /** @param {CardStatus} c */
 export function statusRow(c) {
   return h('li', { class: `status status-${c.kind}` },
     c.kind === 'soon' && c.progress !== undefined ? ring(c.progress) : h('span', { class: 'status-icon' }, icon(c.icon)),
     h('div', { class: 'status-text' },
       h('strong', null, c.title),
-      c.detail ? h('span', { class: 'small' }, c.detail) : null,
+      c.detail ? h('span', { class: 'small' }, unbroken(c.detail)) : null,
     ),
   );
 }
