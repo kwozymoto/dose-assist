@@ -60,7 +60,7 @@ export async function home(ctx) {
   for (const child of kids) {
     const { rows } = await childRows(child, bottles);
     for (const r of rows) if (r.card.nextAllowedAt) soonest = Math.min(soonest, r.card.nextAllowedAt);
-    node.append(childCard(child, rows, t));
+    node.append(childCard(child, rows, t, bottles));
   }
 
   node.append(addChildLink('Add a child'));
@@ -103,8 +103,9 @@ function mascot() {
  * @param {import('../db.js').Child} child
  * @param {{ingredient: string, card: CardStatus}[]} rows
  * @param {number} t
+ * @param {import('../db.js').Bottle[]} bottles
  */
-function childCard(child, rows, t) {
+function childCard(child, rows, t, bottles) {
   const age = ageText(child.dateOfBirth, t);
   return h('section', { class: `card kid kid-${child.colour}`, 'aria-labelledby': `kid-${child.id}` },
     h('a', { class: 'kid-head', href: `#/child/${child.id}`, 'aria-label': `${child.name}: see all doses` },
@@ -114,7 +115,11 @@ function childCard(child, rows, t) {
     ),
     rows.length === 0
       ? h('p', { class: 'muted' }, 'No medicines yet.')
-      : h('ul', { class: 'rows' }, rows.map((r) => statusRow(r.card))),
+      : h('ul', { class: 'rows' }, rows.map((r) => {
+        // Tapping a medicine logs that medicine: straight to its bottle when there is just one.
+        const only = bottles.filter((b) => b.components.length === 1 && b.components[0].ingredient === r.ingredient);
+        return statusRow(r.card, `#/give?child=${child.id}${only.length === 1 ? `&bottle=${only[0].id}` : ''}`, `Log ${r.ingredient} for ${child.name}`);
+      })),
     h('a', { class: 'btn btn-primary btn-big', href: `#/give?child=${child.id}` }, icon('plus'), `Log a dose for ${child.name}`),
   );
 }
@@ -136,8 +141,16 @@ export function unbroken(text) {
   return out;
 }
 
-/** @param {CardStatus} c */
-export function statusRow(c) {
+/** @param {CardStatus} c @param {string} [href] @param {string} [label] */
+export function statusRow(c, href, label) {
+  const inner = [
+    c.kind === 'soon' && c.progress !== undefined ? ring(c.progress) : h('span', { class: 'status-icon' }, icon(c.icon)),
+    h('div', { class: 'status-text' },
+      h('strong', null, c.title),
+      c.detail ? h('span', { class: 'small' }, unbroken(c.detail)) : null,
+    ),
+  ];
+  if (href) return h('li', null, h('a', { class: `status status-${c.kind} status-tap`, href, 'aria-label': `${c.title}. ${label ?? ''}` }, ...inner, h('span', { class: 'status-go', 'aria-hidden': 'true' }, icon('chevron'))));
   return h('li', { class: `status status-${c.kind}` },
     c.kind === 'soon' && c.progress !== undefined ? ring(c.progress) : h('span', { class: 'status-icon' }, icon(c.icon)),
     h('div', { class: 'status-text' },
