@@ -23,8 +23,11 @@ const SHOWN = /** @type {const} */ ([
   ['seekAdviceAfterHours', 'See a doctor if still needed after', (/** @type {number} */ v) => formatInterval(v * 60)],
 ]);
 
-/** @param {Ctx} _ctx @returns {Promise<Screen>} */
-export async function sources(_ctx) {
+/** @param {Ctx} ctx @returns {Promise<Screen>} */
+export async function sources(ctx) {
+  // Reviewer detail (notes, open questions, unchecked brands) is for the
+  // review, not for a parent: shown with ?debug=1.
+  const dev = ctx.query.get('debug') === '1';
   const r = state.rules;
   const node = h('div', { class: 'stack' },
     h('div', { class: `notice ${r.reviewedBy ? '' : 'notice-test'}` },
@@ -37,14 +40,14 @@ export async function sources(_ctx) {
         const v = /** @type {any} */ (rule)[key];
         if (typeof v !== 'number') return [];
         const unverified = rule.unverified?.includes(key);
-        return [h('dt', null, label), h('dd', null, fmt(v), unverified ? h('span', { class: 'badge badge-warn' }, 'not yet confirmed') : null)];
+        return [h('dt', null, label), h('dd', null, fmt(v), unverified ? h('span', { class: 'badge badge-warn' }, 'no source yet') : null)];
       })),
       h('ul', { class: 'bullets small' }, rule.sources.map((s) => h('li', null,
         s.url ? h('a', { href: s.url, target: '_blank', rel: 'noopener' }, s.name) : s.name,
         s.checkedAt ? ` (checked ${s.checkedAt})` : ' (not yet checked)',
       ))),
       /** @type {any} */ (rule).reviewNotes?.length
-        ? h('details', null, h('summary', null, 'Notes for the reviewer'), h('ul', { class: 'bullets small' }, /** @type {string[]} */ (/** @type {any} */ (rule).reviewNotes).map((n) => h('li', null, n))))
+        && dev ? h('details', null, h('summary', null, 'Notes for the reviewer'), h('ul', { class: 'bullets small' }, /** @type {string[]} */ (/** @type {any} */ (rule).reviewNotes).map((n) => h('li', null, n))))
         : null,
     )),
     h('section', { class: 'card stack-sm' },
@@ -52,14 +55,14 @@ export async function sources(_ctx) {
       h('p', { class: 'small muted' }, `Product list ${state.products.productsVersion}. The strength on your own label always wins.`),
       h('ul', { class: 'bullets small' }, state.products.products.map((p) => h('li', null,
         `${p.name}: ${p.components.map((c) => formatStrength(c, p.form)).join(' + ')}`,
-        p.verified ? '' : h('span', { class: 'badge badge-warn' }, 'brand not yet checked'),
+        p.verified || !dev ? '' : h('span', { class: 'badge badge-warn' }, 'brand not yet checked'),
       ))),
     ),
     h('section', { class: 'card stack-sm' },
       h('h2', null, 'Advice in the app'),
       h('ul', { class: 'bullets small' }, Object.entries(SOURCES).filter(([id]) => id !== 'app').map(([, s]) => h('li', null,
         s.url ? h('a', { href: s.url, target: '_blank', rel: 'noopener' }, s.name) : s.name, s.checkedAt ? ` (checked ${s.checkedAt})` : ''))),
-      Object.values(GUIDANCE).some((g) => g.verify)
+      dev && Object.values(GUIDANCE).some((g) => g.verify)
         ? h('details', null, h('summary', null, 'Still to confirm'), h('ul', { class: 'bullets small' },
           Object.values(GUIDANCE).filter((g) => g.verify).map((g) => h('li', null, `${g.title ?? g.text?.slice(0, 60)}: ${g.verify}`))))
         : null,

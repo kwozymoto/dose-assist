@@ -52,7 +52,7 @@ export async function symptomForm(ctx) {
     const urgent = flags.some((f) => URGENT.includes(f));
     const healthline = flags.some((f) => HEALTHLINE.includes(f));
     if (!urgent && !healthline) { ctx.go(`/child/${child.id}`); return; }
-    form.replaceWith(advice(child.id, urgent));
+    form.replaceWith(advice(child.id, urgent, flags.map((f) => SYMPTOM_FLAGS.find((x) => x.id === f)?.name ?? f)));
     scrollTo(0, 0);
   };
 
@@ -71,12 +71,13 @@ export async function symptomForm(ctx) {
   return { title: `${child.name}: temperature and symptoms`, back: `/child/${child.id}`, node };
 }
 
-/** What to do now, from the sourced advice. @param {string} childId @param {boolean} urgent */
-function advice(childId, urgent) {
+/** What to do now, from the sourced advice. @param {string} childId @param {boolean} urgent @param {string[]} ticked */
+function advice(childId, urgent, ticked) {
   const g = urgent ? GUIDANCE.seeUrgently : GUIDANCE.callHealthline;
   return h('div', { class: 'stack' },
     h('div', { class: 'notice notice-danger', role: 'alert' },
       h('strong', null, 'Saved. What you ticked is on the list of reasons to get help.'),
+      h('p', null, `You ticked: ${ticked.join(', ')}.`),
       urgent ? h('p', null, h('strong', null, `${GUIDANCE.call111.title}: `), GUIDANCE.call111.text) : null,
       h('p', null, h('strong', null, g.title)),
       h('ul', { class: 'bullets' }, (g.items ?? []).map((x) => h('li', null, x))),

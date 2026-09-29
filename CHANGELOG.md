@@ -1,5 +1,16 @@
 # Changelog
 
+## Android 1.0.10: the rest of the audit list (unreleased)
+
+- **Linking:** "This is the first phone" no longer starts sharing by itself; "Make the code" does. Pasted codes and scanned links go to one question screen: "Link and combine our records", "Link and use only the other phone's records" (asks again), or Cancel. A bad paste says why (cut off, not a WhenDose code). Delete all data says the phone will be unlinked and the partner's phone keeps its copy.
+- **Doses:** putting a deleted dose back says if it brings back a stop, and returns to the child's page. The timeline shows "Edited" and the dose's note; "Recorded after limits" is now "Given outside the limits".
+- **Summary for the GP:** Share, Copy and Print sit above the text; each dose shows its note and "[edited after logging]"; birth date in NZ style.
+- **Buttons:** a baby too young for a medicine sees "Already given? Record it", not "Give paracetamol". With a longer gap of your own, the big countdown is to when the rules allow it, and your gap is the small line.
+- **Medicines:** removed medicines can be brought back (Settings → Removed medicines). The two-strengths warning shows only for paracetamol. "Add another ingredient" is a proper button.
+- **Wording:** Sources hides reviewer notes, open questions and unchecked-brand badges from parents (shown with `?debug=1`); "no source yet" replaces "not yet confirmed". The weight caution says "more than the usual most for her weight" instead of "the recommended dose". "Just now" / "Earlier". The symptom advice repeats what was ticked. Settings drops "Tracker mode".
+- **Looks:** long titles take at most two lines; Settings sections are separated, with Delete all data apart; date pickers and the calendar icon follow the theme; a chosen radio has a filled centre; softer night stars; the custom medicine form lines up and its photo button is styled.
+- **Android backups:** "Save a backup file" opens the phone's share sheet (Drive, Files, email) through the Filesystem and Share plugins; restore works from a file as before.
+
 ## Android 1.0.2 to 1.0.9: audit fixes, safety stops, linking (unreleased)
 
 - **Call links ask first.** Every call link (footer, Help, stop screens) opens "Call 111 (111) now?" before the dialer, so a child with the phone cannot reach 111 in one tap. Help lists the numbers instead of three big call buttons. Footer links are 56 px tall.

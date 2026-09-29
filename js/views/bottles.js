@@ -221,12 +221,17 @@ function customForm(_ctx, done, back, bare) {
     done();
   };
 
+  // The two-strengths warning is about paracetamol: show it only while a row is paracetamol.
+  const warn = guidanceBox(GUIDANCE.strengthWarning, 'warn');
+  const drawWarn = () => { warn.hidden = ![...rows.querySelectorAll('select')].some((x) => /** @type {HTMLSelectElement} */ (x).value === 'paracetamol'); };
+  rows.addEventListener('change', drawWarn);
+  drawWarn();
   const node = h('form', { class: 'stack', onsubmit: save, novalidate: true },
-    guidanceBox(GUIDANCE.strengthWarning, 'warn'),
+    warn,
     field('Name', 'b-name', name),
     field('Form', 'b-form', form),
     rows,
-    h('button', { type: 'button', class: 'btn btn-quiet', onclick: addRow }, icon('plus'), 'It has another active ingredient (combination medicine)'),
+    h('button', { type: 'button', class: 'btn btn-secondary', onclick: () => { addRow(); drawWarn(); } }, icon('plus'), 'Add another ingredient'),
     perWrap,
     field('Photo of the label', 'b-photo', photo, 'Stays on this phone.'),
     preview,

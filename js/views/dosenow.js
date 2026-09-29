@@ -140,7 +140,9 @@ function medButton(child, r, solo, t, tz) {
     v.since !== undefined ? h('span', { class: 'dose-count', 'data-since': String(v.since) }, formatClock(t - v.since)) : null,
     v.line ? h('span', { class: 'dose-line' }, v.line) : null,
     facts ? h('span', { class: 'dose-line2' }, facts) : null,
-    h('span', { class: 'dose-go' }, `Give ${r.ingredient}`, icon('chevron')),
+    // Too young: there is nothing to give, but a dose already given must
+    // still be recordable (the stop screen offers it).
+    h('span', { class: 'dose-go' }, r.plan.phase === 'blocked' ? 'Already given? Record it' : `Give ${r.ingredient}`, icon('chevron')),
     bar,
   );
 }
@@ -173,9 +175,12 @@ function buttonView(r, t, tz) {
         const longer = p.ruleAt !== null && target > p.ruleAt;
         return {
           state: 'Not yet', cls: 'dose-wait', icon: 'clock',
-          label: longer ? `Your ${formatGap(p.gapMinutes)} gap ends in` : 'Allowed in',
-          until: target,
-          line: longer && p.ruleAt !== null ? `Not allowed until ${formatWhen(p.ruleAt, t, tz)}` : `From ${formatWhen(target, t, tz)}`,
+          // One time on the big countdown: when the rules allow it. Your own
+          // longer gap is the smaller line (after the rules allow it, the
+          // button says "Allowed now if needed" and counts down the gap).
+          label: 'Allowed in',
+          until: longer && p.ruleAt !== null ? p.ruleAt : target,
+          line: longer && p.ruleAt !== null ? `From ${formatWhen(p.ruleAt, t, tz)}. Your ${formatGap(p.gapMinutes)} gap ends ${formatWhen(target, t, tz)}` : `From ${formatWhen(target, t, tz)}`,
           spoken: `Not yet. Allowed in ${formatDuration(target - t, { up: true })}, from ${formatWhen(p.ruleAt ?? target, t, tz)}.`,
         };
       }

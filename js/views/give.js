@@ -302,8 +302,8 @@ async function amountStep(ctx, child, bottle, base) {
     h('fieldset', { class: 'field' },
       h('legend', { class: 'label' }, 'When?'),
       h('div', { class: 'segmented' },
-        h('label', { for: 'when-now' }, whenNow, h('span', null, 'Giving it now')),
-        h('label', { for: 'when-earlier' }, whenEarlier, h('span', null, 'I gave it earlier')),
+        h('label', { for: 'when-now' }, whenNow, h('span', null, 'Just now')),
+        h('label', { for: 'when-earlier' }, whenEarlier, h('span', null, 'Earlier')),
       ),
       atWrap,
     ),
@@ -903,8 +903,8 @@ function weightCautions(check, child, tz) {
     }
     if (x.perDose) {
       out.push(h('div', { class: 'notice notice-warn' }, icon('warn'), h('p', null,
-        `The recommended dose of ${ing} for ${child.name}’s weight (${w.kg} kg, weighed ${when}) is up to ${formatMg(x.perDose.maxMg)}. `,
-        `This is ${formatMg(x.perDose.mg)}. Check the amount, or ask your pharmacist.`)));
+        `This is ${formatMg(x.perDose.mg)} of ${ing}, more than the usual most for ${child.name}’s weight (${formatMg(x.perDose.maxMg)} for ${w.kg} kg, weighed ${when}). `,
+        'Check the amount against the label, or ask your pharmacist.')));
     }
   }
   return out.length ? h('div', { class: 'stack-sm' }, out) : null;

@@ -44,14 +44,25 @@ export async function linkView(ctx) {
       h('div', { class: 'stack-sm' },
         h('label', { class: 'label', for: 'link-paste' }, 'Link code'),
         paste,
-        h('button', { class: 'btn btn-secondary', type: 'button', onclick: () => join(ctx, paste.value) }, 'Link with this code'))),
+        h('button', { class: 'btn btn-secondary', type: 'button', onclick: () => { if (setIncoming(paste.value)) ctx.go('/link?incoming=1'); else toast(pasteProblem(paste.value)); } }, 'Link with this code'))),
   );
   return { title: 'Linked phones', back, node };
 }
 
 /** @param {Ctx} ctx @param {string} back @returns {Promise<Screen>} */
 async function showCode(ctx, back) {
-  const text = (await currentLink()) ?? (await startFamily());
+  const existing = await currentLink();
+  if (!existing) {
+    // Nothing is shared until the parent asks: opening this screen by
+    // mistake, or with Back, must not start sending records.
+    const start = async () => { await startFamily(); ctx.refresh(); };
+    return { title: 'Link another phone', back: '/link', node: h('div', { class: 'stack' },
+      h('p', null, 'This phone will make a code. When the other phone uses it, both phones share one record of children, medicines and doses.'),
+      h('p', { class: 'small muted' }, 'Records start going to the sync server, locked so it cannot read them, as soon as you tap below.'),
+      h('button', { class: 'btn btn-primary btn-big', type: 'button', onclick: start }, icon('share'), 'Make the code'),
+      h('a', { class: 'btn btn-secondary', href: '#/link' }, 'Cancel')) };
+  }
+  const text = existing;
   const qr = h('div', { class: 'qr', role: 'img', 'aria-label': 'QR code for linking another phone' });
   qr.innerHTML = renderSVG(text, { ecc: 'M', border: 2, pixelSize: 8, whiteColor: '#ffffff', blackColor: '#000000' });
   const share = async () => {
@@ -128,32 +139,32 @@ function confirmIncoming(ctx, back, text, cfg) {
   return { title: 'Link this phone?', back, node: h('div', { class: 'stack' },
     h('p', null, 'This link joins this phone to your partner’s WhenDose, so both phones share one record of children, medicines and doses.'),
     h('p', { class: 'small muted' }, 'Only continue if the link came from your partner’s phone.'),
-    h('button', { class: 'btn btn-primary btn-big', type: 'button', onclick: () => join(ctx, text) }, 'Link this phone'),
-    h('a', { class: 'btn btn-secondary', href: '#/settings' }, 'Not now')) };
+    h('button', { class: 'btn btn-primary btn-big', type: 'button', onclick: () => join(ctx, text, false) }, 'Link and combine our records'),
+    h('p', { class: 'small muted' }, 'Combine keeps what is on both phones. The same child or medicine on both is made into one.'),
+    h('button', { class: 'btn btn-danger-quiet', type: 'button', onclick: () => join(ctx, text, true) }, 'Link and use only the other phone’s records'),
+    h('a', { class: 'btn btn-secondary', href: '#/settings', onclick: () => { pending = null; } }, 'Cancel')) };
 }
 
-/** @param {Ctx} ctx @param {string} text */
-async function join(ctx, text) {
-  if (!readLink(text)) { toast('That is not a WhenDose link code.'); return; }
-  pending = null;
-  const kids = await db.children.list({ includeArchived: true });
-  let replace = false;
-  if (kids.length) {
-    const combine = await confirmDialog({
-      title: 'This phone already has records',
-      body: 'Combine them with the other phone’s? If both phones have the same child, you will see them twice and can archive one.',
-      confirm: 'Combine them', cancel: 'Another way',
+/** Why a pasted code is not a link code, in words. @param {string} text */
+function pasteProblem(text) {
+  const t = text.trim();
+  if (!t) return 'Paste the code first.';
+  if (!t.includes('#1:')) return 'That does not look like a WhenDose code. It starts with https:// and has #1: in it.';
+  return 'That code looks cut off. Copy it again, all of it.';
+}
+
+/** @param {Ctx} ctx @param {string} text @param {boolean} replace */
+async function join(ctx, text, replace) {
+  if (!readLink(text)) { toast(pasteProblem(text)); return; }
+  if (replace && (await db.children.list({ includeArchived: true })).length) {
+    const ok = await confirmDialog({
+      title: 'Use only the other phone’s records?',
+      body: 'This phone’s children, medicines and doses will be removed, and the other phone’s taken instead. Your settings stay.',
+      confirm: 'Remove this phone’s records', danger: true,
     });
-    if (!combine) {
-      const rep = await confirmDialog({
-        title: 'Use the other phone’s records instead?',
-        body: 'This phone’s children, medicines and doses will be removed, and the other phone’s taken instead. Your settings stay.',
-        confirm: 'Use the other phone’s', danger: true,
-      });
-      if (!rep) return;
-      replace = true;
-    }
+    if (!ok) return;
   }
+  pending = null;
   const r = await joinFamily(text, { replace });
   /** @type {Record<string, string>} */
   const msg = {

@@ -66,7 +66,7 @@ export async function childDetail(ctx, opts = {}) {
       h('a', { class: 'btn btn-secondary', href: `#/child/${child.id}/summary` }, icon('share'), 'Share a summary'),
     ),
     h('h2', { id: 'timeline', tabindex: '-1' }, 'Timeline'),
-    timeline(all.filter((d) => showDeleted || !d.deletedAt), syms, t, tz, ctx),
+    timeline(all.filter((d) => showDeleted || !d.deletedAt), syms, t, tz, ctx, await editedIds(all)),
     deletedCount > 0
       ? h('a', { class: 'btn btn-quiet', href: `#/child/${child.id}${showDeleted ? '' : '?deleted=1'}` }, showDeleted ? 'Hide deleted doses' : `Show deleted doses (${deletedCount})`)
       : null,
@@ -77,11 +77,17 @@ export async function childDetail(ctx, opts = {}) {
   return { title: child.name, back: only ? false : '/', node, tab: 'home', refreshEvery: 30000, cleanup: dose.cleanup, kid: child.colour };
 }
 
+/** Doses changed after they were logged (their history has an edit). @param {DoseRecord[]} doses */
+async function editedIds(doses) {
+  const ids = await Promise.all(doses.map(async (d) => ((await db.doses.audit(d.id)).some((a) => a.action === 'edit') ? d.id : null)));
+  return new Set(/** @type {string[]} */ (ids.filter(Boolean)));
+}
+
 /**
  * Doses and symptom entries, newest first, grouped by local day.
- * @param {DoseRecord[]} doses @param {SymptomEntry[]} syms @param {number} t @param {string} tz @param {Ctx} ctx
+ * @param {DoseRecord[]} doses @param {SymptomEntry[]} syms @param {number} t @param {string} tz @param {Ctx} ctx @param {Set<string>} edited
  */
-function timeline(doses, syms, t, tz, ctx) {
+function timeline(doses, syms, t, tz, ctx, edited) {
   /** @type {{at: number, node: Node}[]} */
   const items = [];
   for (const d of doses) {
@@ -95,7 +101,9 @@ function timeline(doses, syms, t, tz, ctx) {
             h('strong', null, `${formatAmount(d.amount, d.bottle.form)} ${d.bottle.name}`),
             h('span', { class: 'small' }, d.components.map((c) => `${formatMg(c.mg)} ${c.ingredient}`).join(' + '), ` · ${d.givenBy}`),
             d.overrideReason === 'DOCTOR_ADVISED' ? h('span', { class: 'badge' }, 'Doctor advised') : null,
-            d.overrideReason === 'ALREADY_GIVEN' ? h('span', { class: 'badge badge-warn' }, 'Recorded after limits') : null,
+            d.overrideReason === 'ALREADY_GIVEN' ? h('span', { class: 'badge badge-warn' }, 'Given outside the limits') : null,
+            edited.has(d.id) ? h('span', { class: 'badge' }, 'Edited') : null,
+            d.note ? h('span', { class: 'small user-text' }, d.note) : null,
             late ? h('span', { class: 'small muted' }, `Logged at ${formatWhen(d.loggedAt, t, tz)}`) : null,
             d.deletedAt ? h('span', { class: 'badge' }, `Deleted ${formatWhen(d.deletedAt, t, tz)}`) : null,
           ),
@@ -265,12 +273,12 @@ export async function childSummary(ctx) {
     h('p', { class: 'muted small' }, 'For a GP visit or a call to Healthline. Only what you choose to share leaves this phone.'),
     h('div', { class: 'segmented' }, [24, 48, 168].map((hh) =>
       h('a', { class: `seg${hh === hours ? ' on' : ''}`, href: `#/child/${child.id}/summary?hours=${hh}`, 'aria-current': hh === hours ? 'true' : null }, hh === 168 ? '7 days' : `${hh} hours`))),
-    pre,
     h('div', { class: 'button-row' },
       h('button', { class: 'btn btn-primary', onclick: share }, icon('share'), 'Share'),
       h('button', { class: 'btn btn-secondary', onclick: copy }, 'Copy'),
       h('button', { class: 'btn btn-secondary', onclick: () => print() }, 'Print'),
     ),
+    pre,
   );
   return { title: 'Summary', back: `/child/${child.id}`, node };
 }
@@ -282,16 +290,18 @@ export async function summaryText(child, t, tz, hours) {
   const syms = (await db.symptoms.forChild(child.id)).filter((s) => s.at >= since).reverse();
   const weight = await db.weights.latest(child.id);
   const lines = [];
-  lines.push(`${child.name}${child.dateOfBirth ? `, born ${child.dateOfBirth} (${ageText(child.dateOfBirth, t)})` : ''}`);
+  lines.push(`${child.name}${child.dateOfBirth ? `, born ${new Intl.DateTimeFormat('en-NZ', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(Date.parse(`${child.dateOfBirth}T12:00:00Z`))} (${ageText(child.dateOfBirth, t)})` : ''}`);
   if (weight) lines.push(`Weight ${weight.kg} kg, recorded ${formatDate(weight.recordedAt, tz)}`);
   if (child.notes) lines.push(`Notes: ${child.notes}`);
   lines.push('');
   lines.push(`Medicines, last ${hours === 168 ? '7 days' : `${hours} hours`} (to ${formatDate(t, tz)} ${formatTime(t, tz)}):`);
   if (doses.length === 0) lines.push('  none recorded');
+  const edited = await editedIds(doses);
   for (const d of doses) {
     const mg = d.components.map((c) => `${formatMg(c.mg)} ${c.ingredient}`).join(' + ');
-    const flag = d.overrideReason === 'DOCTOR_ADVISED' ? ' [doctor advised]' : d.overrideReason === 'ALREADY_GIVEN' ? ' [recorded after limits]' : '';
-    lines.push(`  ${formatDate(d.givenAt, tz)} ${formatTime(d.givenAt, tz)}: ${mg} (${formatAmount(d.amount, d.bottle.form)} ${d.bottle.name}), by ${d.givenBy}${flag}`);
+    const flag = d.overrideReason === 'DOCTOR_ADVISED' ? ' [doctor advised]' : d.overrideReason === 'ALREADY_GIVEN' ? ' [given outside the limits]' : '';
+    const ed = edited.has(d.id) ? ' [edited after logging]' : '';
+    lines.push(`  ${formatDate(d.givenAt, tz)} ${formatTime(d.givenAt, tz)}: ${mg} (${formatAmount(d.amount, d.bottle.form)} ${d.bottle.name}), by ${d.givenBy}${flag}${ed}${d.note ? `. Note: ${d.note}` : ''}`);
   }
   if (syms.length) {
     lines.push('');

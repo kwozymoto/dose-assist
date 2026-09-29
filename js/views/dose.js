@@ -40,12 +40,23 @@ export async function doseEdit(ctx) {
 
   if (dose.deletedAt) {
     const restore = async () => {
-      const reason = await confirmDialog({ title: 'Put this dose back on the record?', confirm: 'Put it back', input: { label: 'Why? (optional)' } });
+      // Say what putting it back changes now, as deleting does.
+      let effect = '';
+      if (child) {
+        const all = await db.doses.forChild(child.id);
+        const back2 = all.map((x) => (x.id === dose.id ? { ...x, deletedAt: null } : x));
+        const t2 = now();
+        for (const ing of [...new Set(dose.components.map((c) => c.ingredient))]) {
+          const q = (/** @type {any[]} */ history) => checkDose({ components: [{ ingredient: ing }], rules: state.rules, history, now: t2, child: engineChild(child), timeZone: tz }).status;
+          if (q(all) === 'OK' && q(back2) !== 'OK') effect += ` ${ing[0].toUpperCase()}${ing.slice(1)} is allowed now; after putting this back, it will not be.`;
+        }
+      }
+      const reason = await confirmDialog({ title: 'Put this dose back on the record?', body: `It will count toward limits and reminders again.${effect}`, confirm: 'Put it back', input: { label: 'Why? (optional)' } });
       if (!reason) return;
       await db.doses.restore(dose.id, { by: who(), at: now(), reason: reason.value.trim() || undefined });
       await refreshReminders();
       toast('Dose put back');
-      ctx.refresh();
+      ctx.go(back);
     };
     return {
       title: 'Deleted dose',

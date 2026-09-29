@@ -60,8 +60,21 @@ export async function settings(ctx) {
 
   const exportData = async () => {
     const file = await db.exportAll(now());
-    const blob = new Blob([JSON.stringify(file, null, 2)], { type: 'application/json' });
-    const a = h('a', { href: URL.createObjectURL(blob), download: `whendose-backup-${new Date(now()).toISOString().slice(0, 10)}.json` });
+    const json = JSON.stringify(file, null, 2);
+    const name = `whendose-backup-${new Date(now()).toISOString().slice(0, 10)}.json`;
+    // The Android app cannot download: write the file to the app's cache and
+    // open the phone's share sheet, so the parent chooses where it goes
+    // (Drive, Files, email). Nothing is sent anywhere without that choice.
+    const plugins = /** @type {any} */ (globalThis).Capacitor?.Plugins;
+    if (isNative() && plugins?.Filesystem && plugins?.Share) {
+      try {
+        const { uri } = await plugins.Filesystem.writeFile({ path: name, data: json, directory: 'CACHE', encoding: 'utf8' });
+        await plugins.Share.share({ title: 'WhenDose backup', url: uri, dialogTitle: 'Save the backup file' });
+      } catch { /* cancelled */ }
+      return;
+    }
+    const blob = new Blob([json], { type: 'application/json' });
+    const a = h('a', { href: URL.createObjectURL(blob), download: name });
     document.body.append(a);
     a.click();
     a.remove();
@@ -88,7 +101,7 @@ export async function settings(ctx) {
   const wipe = async () => {
     const ok = await confirmDialog({
       title: 'Delete all data?',
-      body: 'Every child, medicine, dose and reminder on this phone will be permanently deleted. This cannot be undone. Save a backup first if you might want it.',
+      body: `Every child, medicine, dose and reminder on this phone will be permanently deleted. This cannot be undone. Save a backup first if you might want it.${syncConfigured() && linkCfg ? ' This phone will also be unlinked. Your partner’s phone keeps its own copy of the records.' : ''}`,
       confirm: 'Delete everything', danger: true,
       input: { label: 'Type DELETE to confirm', required: 'DELETE' },
     });
@@ -102,7 +115,8 @@ export async function settings(ctx) {
     ctx.go('/welcome');
   };
 
-  const node = h('div', { class: 'stack' },
+  const removedMeds = (await db.bottles.list({ includeArchived: true })).filter((b) => b.archivedAt && !b.mergedInto);
+  const node = h('div', { class: 'stack settings' },
     h('section', { class: 'stack-sm' },
       h('h2', null, 'You'),
       field('Your name on this phone', 'st-name', name, 'Shown on each dose you log, so others can see who gave it.'),
@@ -137,17 +151,22 @@ export async function settings(ctx) {
       h('button', { class: 'btn btn-secondary', onclick: exportData }, 'Save a backup file'),
       h('button', { class: 'btn btn-secondary', onclick: () => importInput.click() }, 'Restore from a backup file'),
       importInput,
-      h('button', { class: 'btn btn-danger-quiet', onclick: wipe }, 'Delete all data'),
+      h('div', { class: 'danger-zone' }, h('button', { class: 'btn btn-danger-quiet', onclick: wipe }, 'Delete all data')),
     ),
     archived.length ? h('section', { class: 'stack-sm' },
       h('h2', null, 'Archived children'),
       archived.map((k) => h('div', { class: 'row-between' }, h('span', null, k.name),
         h('button', { class: 'btn btn-quiet', onclick: async () => { await db.children.unarchive(k.id); toast(`${k.name} is back`); ctx.refresh(); } }, 'Bring back'))),
     ) : null,
+    removedMeds.length ? h('section', { class: 'stack-sm' },
+      h('h2', null, 'Removed medicines'),
+      removedMeds.map((b) => h('div', { class: 'row-between' }, h('span', null, b.name),
+        h('button', { class: 'btn btn-quiet', onclick: async () => { await db.bottles.save({ ...b, archivedAt: null }); toast(`${b.name} is back`); ctx.refresh(); } }, 'Bring back'))),
+    ) : null,
     h('section', { class: 'stack-sm' },
       h('h2', null, 'About'),
       h('a', { class: 'btn btn-quiet', href: '#/sources' }, 'Sources, limits and privacy'),
-      h('p', { class: 'small muted' }, `Limits version ${state.rules.rulesVersion} · products ${state.products.productsVersion} · Tracker mode`),
+      h('p', { class: 'small muted' }, `Limits version ${state.rules.rulesVersion} · medicines list ${state.products.productsVersion}`),
     ),
     ctx.query.get('debug') === '1' || clockOffset() !== 0 ? testClock(ctx) : null,
   );
